@@ -14,14 +14,14 @@ export default function SekolahAssessment() {
     const { user } = useAuth();
     const { showToast } = useToast();
 
-    const [levels, setLevels]           = useState([]);
-    const [openLevel, setOpenLevel]     = useState(null);
-    const [pertanyaan, setPertanyaan]   = useState({});  // { levelId: [...] }
-    const [jawaban, setJawaban]         = useState({});  // { `${levelId}_${pertId}`: {memenuhi, bukti_files, bukti_links} }
-    const [loading, setLoading]         = useState(true);
+    const [levels, setLevels] = useState([]);
+    const [openLevel, setOpenLevel] = useState(null);
+    const [pertanyaan, setPertanyaan] = useState({});  // { levelId: [...] }
+    const [jawaban, setJawaban] = useState({});  // { `${levelId}_${pertId}`: {memenuhi, bukti_files, bukti_links} }
+    const [loading, setLoading] = useState(true);
     const [loadingPert, setLoadingPert] = useState(false);
-    const [submitting, setSubmitting]   = useState(false);
-    const [linkInput, setLinkInput]     = useState({});
+    const [submitting, setSubmitting] = useState(false);
+    const [linkInput, setLinkInput] = useState({});
 
     // Fetch semua levels + status
     const fetchLevels = useCallback(() => {
@@ -30,8 +30,8 @@ export default function SekolahAssessment() {
             .then(res => {
                 const list = res.data?.data ?? res.data ?? [];
                 setLevels(Array.isArray(list) ? list : []);
-                // Buka level pertama yang belum submitted
-                const firstOpen = (Array.isArray(list) ? list : []).find(l => l.status !== "submitted" && l.status !== "verified");
+                // Buka level pertama yang belum disubmit secara permanen
+                const firstOpen = (Array.isArray(list) ? list : []).find(l => l.status !== "submitted" && l.status !== "verified" && l.status !== "final");
                 if (firstOpen) setOpenLevel(firstOpen.id);
             })
             .catch(console.error)
@@ -169,8 +169,8 @@ export default function SekolahAssessment() {
 
     // Hitung total progress
     const totalLevels = levels.length;
-    const doneLevels  = levels.filter(l => l.status === "submitted" || l.status === "verified").length;
-    const totalPerts  = Object.values(pertanyaan).flat().length;
+    const doneLevels = levels.filter(l => l.status === "submitted" || l.status === "verified" || l.status === "final").length;
+    const totalPerts = Object.values(pertanyaan).flat().length;
     const answeredPerts = Object.keys(jawaban).filter(k => jawaban[k].memenuhi !== null && jawaban[k].memenuhi !== undefined).length;
 
     if (loading) return <LoadingSpinner />;
@@ -211,11 +211,11 @@ export default function SekolahAssessment() {
 
                 {/* LEVEL LIST */}
                 {levels.map((level, idx) => {
-                    const isSubmitted = level.status === "submitted" || level.status === "verified";
-                    const isLocked    = level.status === "locked";
-                    const isOpen      = openLevel === level.id;
-                    const complete    = isTierComplete(level.id);
-                    const perts       = pertanyaan[level.id] || [];
+                    const isSubmitted = level.status === "submitted" || level.status === "verified" || level.status === "final";
+                    const isLocked = level.status === "locked";
+                    const isOpen = openLevel === level.id;
+                    const complete = isTierComplete(level.id);
+                    const perts = pertanyaan[level.id] || [];
 
                     return (
                         <div key={level.id} style={{ ...tierCard, opacity: isLocked ? 0.5 : 1, marginBottom: "16px" }}>
@@ -243,8 +243,8 @@ export default function SekolahAssessment() {
                                         <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)" }}>Memuat pertanyaan...</div>
                                     )}
                                     {perts.map((q, i) => {
-                                        const j     = getJawaban(level.id, q.id);
-                                        const key   = `${level.id}_${q.id}`;
+                                        const j = getJawaban(level.id, q.id);
+                                        const key = `${level.id}_${q.id}`;
 
                                         return (
                                             <div key={q.id} style={questionCard}>
@@ -350,22 +350,22 @@ function LoadingSpinner() {
 }
 
 // ── styles ──
-const heroCard       = { background: "linear-gradient(135deg, #042C53 0%, #0F6E56 100%)", borderRadius: 24, padding: "28px 32px", color: "white", marginBottom: 28, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 20 };
-const heroTitle      = { fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, marginBottom: 4 };
-const heroSubtitle   = { opacity: 0.8, fontSize: 15 };
-const heroStatsWrap  = { display: "flex", gap: 14, flexWrap: "wrap" };
-const dashboardCard  = { background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)", borderRadius: 16, padding: "16px 18px", display: "flex", alignItems: "center", gap: 12, minWidth: 130 };
-const iconWrap       = { width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
-const cardLabel      = { fontSize: 12, opacity: 0.75, marginBottom: 2 };
-const cardValue      = { fontSize: 20, fontWeight: 800 };
-const tierCard       = { background: "var(--card-bg)", borderRadius: 20, border: "1px solid var(--border)", overflow: "hidden" };
-const tierHeader     = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", userSelect: "none" };
-const questionCard   = { padding: "18px 22px", borderTop: "1px solid var(--border)" };
-const questionText   = { fontSize: 14, fontWeight: 600, lineHeight: 1.6, marginBottom: 14, color: "var(--text-main)" };
-const evidenceBox    = { background: "var(--bg-light)", borderRadius: 12, padding: "14px 16px", marginTop: 4, display: "flex", flexDirection: "column", gap: 8 };
-const evidenceTitle  = { fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 4 };
-const fileItem       = { display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", borderRadius: 8, padding: "8px 10px", fontSize: 13 };
-const removeBtn      = { background: "none", border: "none", cursor: "pointer", color: "#E24B4A", fontWeight: 700, fontSize: 16, padding: "0 4px" };
+const heroCard = { background: "linear-gradient(135deg, #042C53 0%, #0F6E56 100%)", borderRadius: 24, padding: "28px 32px", color: "white", marginBottom: 28, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 20 };
+const heroTitle = { fontSize: "clamp(22px, 4vw, 30px)", fontWeight: 800, marginBottom: 4 };
+const heroSubtitle = { opacity: 0.8, fontSize: 15 };
+const heroStatsWrap = { display: "flex", gap: 14, flexWrap: "wrap" };
+const dashboardCard = { background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)", borderRadius: 16, padding: "16px 18px", display: "flex", alignItems: "center", gap: 12, minWidth: 130 };
+const iconWrap = { width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+const cardLabel = { fontSize: 12, opacity: 0.75, marginBottom: 2 };
+const cardValue = { fontSize: 20, fontWeight: 800 };
+const tierCard = { background: "var(--card-bg)", borderRadius: 20, border: "1px solid var(--border)", overflow: "hidden" };
+const tierHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", userSelect: "none" };
+const questionCard = { padding: "18px 22px", borderTop: "1px solid var(--border)" };
+const questionText = { fontSize: 14, fontWeight: 600, lineHeight: 1.6, marginBottom: 14, color: "var(--text-main)" };
+const evidenceBox = { background: "var(--bg-light)", borderRadius: 12, padding: "14px 16px", marginTop: 4, display: "flex", flexDirection: "column", gap: 8 };
+const evidenceTitle = { fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 4 };
+const fileItem = { display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", borderRadius: 8, padding: "8px 10px", fontSize: 13 };
+const removeBtn = { background: "none", border: "none", cursor: "pointer", color: "#E24B4A", fontWeight: 700, fontSize: 16, padding: "0 4px" };
 const toggleBtn = (active, color, bg) => ({
     padding: "9px 20px", borderRadius: 10, border: `2px solid ${active ? color : "#e5e7eb"}`,
     background: active ? bg : "white", color: active ? color : "#9ca3af",
