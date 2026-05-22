@@ -31,15 +31,22 @@ export function AuthProvider({ children }) {
     }, []);
 
     async function login(email, password) {
-        const res = await loginApi(email, password);
-        if (res.success) {
-            const { access_token, user: userData } = res.data;
-            localStorage.setItem("uksm_token", access_token);
-            localStorage.setItem("uksm_user", JSON.stringify(userData));
-            setUser(userData);
-            return { ok: true, role: userData.role };
+        try {
+            const res = await loginApi(email, password);
+            if (res.success) {
+                const { access_token, user: userData } = res.data;
+                localStorage.setItem("uksm_token", access_token);
+                localStorage.setItem("uksm_user", JSON.stringify(userData));
+                setUser(userData);
+                return { ok: true, role: userData.role };
+            }
+            return { ok: false, message: res.message || "Login gagal" };
+        } catch (error) {
+            if (error.response && error.response.data) {
+                return { ok: false, message: error.response.data.message || "Login gagal" };
+            }
+            throw error;
         }
-        return { ok: false, message: res.message || "Login gagal" };
     }
 
     async function logout() {

@@ -10,12 +10,15 @@ const axiosInstance = axios.create({
     },
 });
 
-// Request interceptor – attach token
+// Request interceptor – attach token and handle FormData
 axiosInstance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('uksm_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        }
+        if (config.data instanceof FormData) {
+            delete config.headers['Content-Type'];
         }
         return config;
     },
@@ -26,11 +29,14 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
-        const { response } = error;
+        const { response, config } = error;
         if (response?.status === 401) {
             localStorage.removeItem('uksm_token');
             localStorage.removeItem('uksm_user');
-            window.location.href = '/login';
+            // Jangan redirect jika kita sedang berada di halaman login atau URL request adalah /auth/login
+            if (window.location.pathname !== '/login' && (!config || !config.url || !config.url.includes('/auth/login'))) {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

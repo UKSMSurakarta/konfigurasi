@@ -74,14 +74,29 @@ export const getOpdListForPengumumanApi = () =>
 // Konten (accessible via /user/kontens for role superadmin)
 export const getKontensApi = (params) =>
   axiosInstance.get("/user/kontens", { params }).then((r) => r.data);
+
 export const createKontenApi = (data) =>
   axiosInstance.post("/user/kontens", data).then((r) => r.data);
-export const updateKontenApi = (id, data) =>
-  axiosInstance.put(`/user/kontens/${id}`, data).then((r) => r.data);
+
+export const updateKontenApi = (id, data) => {
+  if (data instanceof FormData) {
+    data.append("_method", "PUT");
+    return axiosInstance.post(`/user/kontens/${id}`, data).then((r) => r.data);
+  }
+  return axiosInstance.put(`/user/kontens/${id}`, data).then((r) => r.data);
+};
+
 export const deleteKontenApi = (id) =>
   axiosInstance.delete(`/user/kontens/${id}`).then((r) => r.data);
+
 export const togglePublishKontenApi = (id) =>
   axiosInstance.patch(`/user/kontens/${id}/publish`).then((r) => r.data);
+
+export const uploadKontenImageApi = (file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+  return axiosInstance.post("/user/kontens/upload-image", formData).then((r) => r.data);
+};
 
 // Laporan Superadmin (uses dashboard + monitoring)
 export const getSuperadminLaporanApi = (params) =>

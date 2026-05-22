@@ -17,7 +17,7 @@ import {
   Link as LinkIcon,
   Loader2,
 } from "lucide-react";
-import { createKontenApi, updateKontenApi } from "../../api/superadmin";
+import { createKontenApi, updateKontenApi, uploadKontenImageApi } from "../../api/superadmin";
 import axiosInstance from "../../api/axios";
 import { useToast } from "../../components/Toast";
 
@@ -37,6 +37,7 @@ export default function SuperAdminkontenDesain() {
   const editorRef = useRef(null);
 
   const [cover, setCover] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
   const [title, setTitle] = useState("Judul Artikel...");
   const [selectedTipe, setSelectedTipe] = useState("berita");
   const [saving, setSaving] = useState(false);
@@ -56,7 +57,7 @@ export default function SuperAdminkontenDesain() {
           if (editorRef.current) {
             editorRef.current.innerHTML = d.isi || "";
           }
-          if (d.thumbnail) setCover(d.thumbnail);
+          if (d.thumbnail_url) setCover(d.thumbnail_url);
         }
       })
       .catch(() => showToast("Gagal memuat data artikel", "error"))
@@ -69,24 +70,27 @@ export default function SuperAdminkontenDesain() {
     editorRef.current?.focus();
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      handleCommand("insertImage", event.target.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      showToast("Sedang mengunggah gambar...", "info");
+      const res = await uploadKontenImageApi(file);
+      if (res.success && res.url) {
+        handleCommand("insertImage", res.url);
+        showToast("Gambar berhasil diunggah", "success");
+      }
+    } catch (err) {
+      showToast("Gagal mengunggah gambar", "error");
+    }
+    e.target.value = null;
   };
 
   const handleCoverUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setCover(event.target.result);
-    };
-    reader.readAsDataURL(file);
+    setCoverFile(file);
+    setCover(URL.createObjectURL(file));
   };
 
   /* ── save handler ─────────────────────────────────────────── */
@@ -103,13 +107,15 @@ export default function SuperAdminkontenDesain() {
     }
 
     setSaving(true);
-    const payload = {
-      judul: title,
-      isi: editorContent,
-      tipe: selectedTipe,
-      is_published: publishNow,
-      thumbnail: null,
-    };
+
+    const payload = new FormData();
+    payload.append("judul", title);
+    payload.append("isi", editorContent);
+    payload.append("tipe", selectedTipe);
+    payload.append("is_published", publishNow ? "1" : "0");
+    if (coverFile) {
+      payload.append("thumbnail", coverFile);
+    }
 
     try {
       if (editId) {
@@ -508,7 +514,7 @@ export default function SuperAdminkontenDesain() {
                       <input
                         type="file"
                         hidden
-                        accept="image/*"
+                        accept="image/jpeg, image/jpg, image/png, image/gif"
                         onChange={handleCoverUpload}
                       />
                     </label>

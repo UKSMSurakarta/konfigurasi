@@ -114,6 +114,7 @@ Route::prefix('v1')->group(function () {
 
         // User Routes (Content Manager)
         Route::middleware('role:user,admin,superadmin')->prefix('user')->group(function () {
+            Route::post('kontens/upload-image', [\App\Http\Controllers\API\Admin\KontenController::class, 'uploadImage']);
             Route::apiResource('kontens', \App\Http\Controllers\API\Admin\KontenController::class);
             Route::patch('kontens/{id}/publish', [\App\Http\Controllers\API\Admin\KontenController::class, 'togglePublish']);
         });

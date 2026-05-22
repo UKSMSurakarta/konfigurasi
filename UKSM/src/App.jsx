@@ -24,6 +24,7 @@ import SuperAdminkonten from "./pages/superadmin/SuperAdminkonten";
 import SuperAdminkontenDesain from "./pages/superadmin/SuperAdminkontenDesain";
 import KontenDashboard from "./pages/konten/KontenDashboard";
 import KontenDesain from "./pages/konten/KontenDesain";
+import KontenPreview from "./pages/konten/KontenPreview";
 import KontenGaleriMedia from "./pages/konten/KontenGaleriMedia";
 
 // Role-based redirect map
@@ -95,12 +96,14 @@ function AppRouter() {
                     <Route path="/superadmin/laporan"               element={<SuperAdminlaporan />} />
                     <Route path="/superadmin/konten"                element={<SuperAdminkonten />} />
                     <Route path="/superadmin/konten-desain"         element={<SuperAdminkontenDesain />} />
+                    <Route path="/superadmin/preview/:id"           element={<KontenPreview />} />
                 </Route>
 
                 {/* ── Konten ── */}
                 <Route element={<ProtectedRoute allowedRoles={["konten", "user"]}><DashboardLayout /></ProtectedRoute>}>
                     <Route path="/konten/dashboard" element={<KontenDashboard />} />
                     <Route path="/konten/desain"    element={<KontenDesain />} />
+                    <Route path="/konten/preview/:id" element={<KontenPreview />} />
                     <Route path="/konten/galeri"    element={<KontenGaleriMedia />} />
                 </Route>
 

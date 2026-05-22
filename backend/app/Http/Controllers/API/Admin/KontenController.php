@@ -45,7 +45,7 @@ class KontenController extends Controller
             "judul" => "required|string|max:255",
             "isi" => "required|string",
             "tipe" => "required|in:berita,pengumuman,agenda,galeri",
-            "thumbnail" => "nullable|image|mimes:jpg,jpeg,png|max:512",
+            "thumbnail" => "nullable|image|mimes:jpg,jpeg,png|max:5120",
         ]);
 
         $thumbnailPath = null;
@@ -100,7 +100,7 @@ class KontenController extends Controller
             "judul" => "sometimes|string|max:255",
             "isi" => "sometimes|string",
             "tipe" => "sometimes|in:berita,pengumuman,agenda,galeri",
-            "thumbnail" => "nullable|image|mimes:jpg,jpeg,png|max:512",
+            "thumbnail" => "nullable|image|mimes:jpg,jpeg,png|max:5120",
         ]);
 
         if ($request->hasFile("thumbnail")) {
@@ -162,5 +162,25 @@ class KontenController extends Controller
                 : "Konten ditarik dari publik.",
             "data" => new KontenResource($konten),
         ]);
+    }
+
+    /**
+     * Upload an image from the WYSIWYG editor and return its URL.
+     */
+    public function uploadImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120'
+        ]);
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('konten/images', 'public');
+            return response()->json([
+                'success' => true,
+                'url' => asset('storage/' . $path)
+            ]);
+        }
+
+        return response()->json(['success' => false, 'message' => 'No image uploaded'], 400);
     }
 }

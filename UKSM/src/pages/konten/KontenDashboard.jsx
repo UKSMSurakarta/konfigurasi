@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Globe,
   EyeOff,
+  Eye,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -396,6 +397,12 @@ export default function KontenDashboard() {
                           title={k.is_published ? "Unpublish" : "Publish"}
                           onClick={() => handleToggle(k.id)}
                           disabled={toggling === k.id}
+                        />
+                        <IconBtn
+                          icon={<Eye size={14} />}
+                          color="var(--primary)"
+                          title="Preview"
+                          onClick={() => navigate(`/konten/preview/${k.id}`)}
                         />
                         <IconBtn
                           icon={<Edit2 size={14} />}

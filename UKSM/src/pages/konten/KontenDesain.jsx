@@ -1,78 +1,155 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-    Upload,
-    ImagePlus,
-    Save,
-    Eye,
-    Trash2,
-    Type,
-    Bold,
-    Italic,
-    Underline,
-    List,
-    ListOrdered,
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
-    Palette,
-    Link as LinkIcon,
+  Upload,
+  ImagePlus,
+  Save,
+  Eye,
+  Trash2,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link as LinkIcon,
+  Loader2,
 } from "lucide-react";
+import { createKontenApi, updateKontenApi, uploadKontenImageApi } from "../../api/admin";
+import axiosInstance from "../../api/axios";
+import { useToast } from "../../components/Toast";
+
+const TIPE_OPTIONS = [
+  { value: "berita", label: "Berita" },
+  { value: "pengumuman", label: "Pengumuman" },
+  { value: "agenda", label: "Agenda" },
+  { value: "galeri", label: "Galeri" },
+];
 
 export default function KontenDesain() {
-    const editorRef = useRef(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const { showToast } = useToast();
 
-    const [cover, setCover] = useState(null);
-    const [title, setTitle] = useState(
-        "Judul Artikel..."
-    );
+  const editorRef = useRef(null);
 
-    const handleCommand = (command, value = null) => {
-        document.execCommand(command, false, value);
-        editorRef.current?.focus();
-    };
+  const [cover, setCover] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [title, setTitle] = useState("Judul Artikel...");
+  const [selectedTipe, setSelectedTipe] = useState("berita");
+  const [saving, setSaving] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
 
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
+  /* â”€â”€ load existing konten when in edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  useEffect(() => {
+    if (!editId) return;
+    setLoadingEdit(true);
+    axiosInstance
+      .get(`/user/kontens/${editId}`)
+      .then((r) => {
+        const d = r.data?.data || r.data;
+        if (d) {
+          setTitle(d.judul || "Judul Artikel...");
+          setSelectedTipe(d.tipe || "berita");
+          if (editorRef.current) {
+            editorRef.current.innerHTML = d.isi || "";
+          }
+          if (d.thumbnail_url) setCover(d.thumbnail_url);
+        }
+      })
+      .catch(() => showToast("Gagal memuat data artikel", "error"))
+      .finally(() => setLoadingEdit(false));
+  }, [editId]); // eslint-disable-line
 
-        if (!file) return;
+  /* â”€â”€ editor helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  const handleCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
 
-        const reader = new FileReader();
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      showToast("Sedang mengunggah gambar...", "info");
+      const res = await uploadKontenImageApi(file);
+      if (res.success && res.url) {
+        handleCommand("insertImage", res.url);
+        showToast("Gambar berhasil diunggah", "success");
+      }
+    } catch (err) {
+      showToast("Gagal mengunggah gambar", "error");
+    }
+    e.target.value = null;
+  };
 
-        reader.onload = (event) => {
-            handleCommand(
-                "insertImage",
-                event.target.result
-            );
-        };
+  const handleCoverUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setCoverFile(file);
+    setCover(URL.createObjectURL(file));
+  };
 
-        reader.readAsDataURL(file);
-    };
+  /* â”€â”€ save handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  const handleSave = async (publishNow) => {
+    const editorContent = editorRef.current?.innerHTML?.trim() || "";
 
-    const handleCoverUpload = (e) => {
-        const file = e.target.files[0];
+    if (!title || title === "Judul Artikel...") {
+      showToast("Harap isi judul artikel terlebih dahulu", "error");
+      return;
+    }
+    if (!editorContent) {
+      showToast("Harap isi konten artikel", "error");
+      return;
+    }
 
-        if (!file) return;
+    setSaving(true);
+    
+    const payload = new FormData();
+    payload.append("judul", title);
+    payload.append("isi", editorContent);
+    payload.append("tipe", selectedTipe);
+    payload.append("is_published", publishNow ? "1" : "0");
+    if (coverFile) {
+      payload.append("thumbnail", coverFile);
+    }
 
-        const reader = new FileReader();
+    try {
+      if (editId) {
+        await updateKontenApi(editId, payload);
+      } else {
+        await createKontenApi(payload);
+      }
+      showToast(
+        publishNow
+          ? "Artikel berhasil diterbitkan!"
+          : "Draft berhasil disimpan!",
+        "success",
+      );
+      navigate("/konten/dashboard");
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Gagal menyimpan artikel";
+      showToast(msg, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        reader.onload = (event) => {
-            setCover(event.target.result);
-        };
-
-        reader.readAsDataURL(file);
-    };
-
-    return (
-        <div
-            style={{
-                width: "100%",
-                paddingBottom: "40px",
-            }}
-        >
-            {/* ========================= */}
-            {/* STYLE */}
-            {/* ========================= */}
-            <style>{`
+  /* â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  return (
+    <div
+      style={{
+        width: "100%",
+        paddingBottom: "40px",
+      }}
+    >
+      {/* ========================= */}
+      {/* STYLE */}
+      {/* ========================= */}
+      <style>{`
         .editor-page *{
           box-sizing:border-box;
         }
@@ -244,6 +321,11 @@ export default function KontenDesain() {
           margin-bottom:14px;
         }
 
+        .action-btn:disabled{
+          opacity:0.6;
+          cursor:not-allowed;
+        }
+
         .btn-primary-custom{
           background:linear-gradient(
             135deg,
@@ -337,501 +419,466 @@ export default function KontenDesain() {
         }
       `}</style>
 
-            <div className="editor-page">
-                {/* ========================= */}
-                {/* HEADER */}
-                {/* ========================= */}
+      <div className="editor-page">
+        {/* ========================= */}
+        {/* HEADER */}
+        {/* ========================= */}
 
-                <div
-                    className="flex items-start justify-between mb-6"
-                    style={{
-                        gap: "16px",
-                        flexWrap: "wrap",
-                    }}
-                >
-                    <div>
-                        <h1
-                            style={{
-                                fontSize: "clamp(24px,4vw,34px)",
-                                fontWeight: 800,
-                                marginBottom: "8px",
-                            }}
-                        >
-                            Editor Artikel
-                        </h1>
-
-                        <p
-                            className="text-muted"
-                            style={{
-                                fontSize: "14px",
-                                lineHeight: 1.7,
-                            }}
-                        >
-                            Buat dan desain artikel berita UKS
-                            dengan editor modern seperti Microsoft
-                            Word.
-                        </p>
-                    </div>
-
-                    <div
-                        className="badge badge-glow"
-                        style={{
-                            whiteSpace: "nowrap",
-                        }}
-                    >
-                        Artikel Baru
-                    </div>
-                </div>
-
-                {/* ========================= */}
-                {/* CONTENT */}
-                {/* ========================= */}
-
-                <div className="editor-grid">
-                    {/* ========================= */}
-                    {/* MAIN EDITOR */}
-                    {/* ========================= */}
-
-                    <div className="editor-card">
-                        {/* COVER */}
-                        <div className="cover-upload">
-                            {cover ? (
-                                <>
-                                    <img
-                                        src={cover}
-                                        alt="Cover"
-                                    />
-
-                                    <div className="cover-overlay">
-                                        <Upload size={34} />
-
-                                        <label className="upload-btn">
-                                            Ganti Cover
-                                            <input
-                                                type="file"
-                                                hidden
-                                                accept="image/*"
-                                                onChange={
-                                                    handleCoverUpload
-                                                }
-                                            />
-                                        </label>
-                                    </div>
-                                </>
-                            ) : (
-                                <div
-                                    style={{
-                                        textAlign: "center",
-                                        padding: "30px",
-                                    }}
-                                >
-                                    <Upload
-                                        size={50}
-                                        style={{
-                                            marginBottom: "14px",
-                                            color: "var(--primary)",
-                                        }}
-                                    />
-
-                                    <h3
-                                        style={{
-                                            marginBottom: "10px",
-                                        }}
-                                    >
-                                        Upload Cover Artikel
-                                    </h3>
-
-                                    <p
-                                        className="text-muted"
-                                        style={{
-                                            marginBottom: "20px",
-                                            fontSize: "14px",
-                                        }}
-                                    >
-                                        Gunakan gambar berkualitas
-                                        tinggi agar artikel terlihat
-                                        profesional
-                                    </p>
-
-                                    <label className="upload-btn">
-                                        Pilih Cover
-                                        <input
-                                            type="file"
-                                            hidden
-                                            accept="image/*"
-                                            onChange={
-                                                handleCoverUpload
-                                            }
-                                        />
-                                    </label>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* TITLE */}
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) =>
-                                setTitle(e.target.value)
-                            }
-                            className="title-input"
-                        />
-
-                        {/* TOOLBAR */}
-                        <div className="editor-toolbar">
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand("bold")
-                                }
-                            >
-                                <Bold size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand("italic")
-                                }
-                            >
-                                <Italic size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand("underline")
-                                }
-                            >
-                                <Underline size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand(
-                                        "insertUnorderedList"
-                                    )
-                                }
-                            >
-                                <List size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand(
-                                        "insertOrderedList"
-                                    )
-                                }
-                            >
-                                <ListOrdered size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand(
-                                        "justifyLeft"
-                                    )
-                                }
-                            >
-                                <AlignLeft size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand(
-                                        "justifyCenter"
-                                    )
-                                }
-                            >
-                                <AlignCenter size={18} />
-                            </button>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() =>
-                                    handleCommand(
-                                        "justifyRight"
-                                    )
-                                }
-                            >
-                                <AlignRight size={18} />
-                            </button>
-
-                            <label className="toolbar-btn">
-                                <ImagePlus size={18} />
-
-                                <input
-                                    hidden
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={
-                                        handleImageUpload
-                                    }
-                                />
-                            </label>
-
-                            <button
-                                className="toolbar-btn"
-                                onClick={() => {
-                                    const url = prompt(
-                                        "Masukkan URL:"
-                                    );
-
-                                    if (url)
-                                        handleCommand(
-                                            "createLink",
-                                            url
-                                        );
-                                }}
-                            >
-                                <LinkIcon size={18} />
-                            </button>
-
-                            <input
-                                type="color"
-                                title="Text Color"
-                                onChange={(e) =>
-                                    handleCommand(
-                                        "foreColor",
-                                        e.target.value
-                                    )
-                                }
-                                style={{
-                                    width: "44px",
-                                    height: "44px",
-                                    border: "none",
-                                    borderRadius: "14px",
-                                    cursor: "pointer",
-                                    overflow: "hidden",
-                                    background: "transparent",
-                                }}
-                            />
-
-                            <select
-                                className="toolbar-select"
-                                onChange={(e) =>
-                                    handleCommand(
-                                        "fontSize",
-                                        e.target.value
-                                    )
-                                }
-                            >
-                                <option value="3">
-                                    Ukuran Font
-                                </option>
-                                <option value="1">
-                                    Kecil
-                                </option>
-                                <option value="3">
-                                    Normal
-                                </option>
-                                <option value="5">
-                                    Besar
-                                </option>
-                                <option value="7">
-                                    Sangat Besar
-                                </option>
-                            </select>
-                        </div>
-
-                        {/* CONTENT */}
-                        <div
-                            ref={editorRef}
-                            contentEditable
-                            suppressContentEditableWarning
-                            className="editor-content"
-                        >
-                            <h2>
-                                Mulai menulis artikel...
-                            </h2>
-
-                            <p>
-                                Anda dapat menambahkan gambar,
-                                mengubah warna teks, membuat
-                                tulisan bold, italic, underline,
-                                serta mengatur layout artikel
-                                dengan fleksibel.
-                            </p>
-
-                            <p>
-                                Editor ini mendukung desain
-                                artikel modern seperti Microsoft
-                                Word.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* ========================= */}
-                    {/* SIDEBAR */}
-                    {/* ========================= */}
-
-                    {/* ========================= */}
-{/* SIDEBAR */}
-{/* ========================= */}
-
-<div className="side-card">
-    <h3 className="side-title">
-        Publikasi Artikel
-    </h3>
-
-    {/* SIMPAN DRAFT */}
-    <button
-        className="action-btn btn-outline-custom"
-        style={{
-            background:
-                "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-            border: "1px solid var(--border)",
-            color: "var(--primary)",
-        }}
-    >
-        <Save size={18} />
-        Simpan Draft
-    </button>
-
-    {/* POSTING */}
-    <button
-        className="action-btn btn-primary-custom"
-    >
-        <Upload size={18} />
-        Posting Artikel
-    </button>
-
-    {/* PREVIEW */}
-    <button
-        className="action-btn btn-outline-custom"
-    >
-        <Eye size={18} />
-        Preview Artikel
-    </button>
-
-    {/* HAPUS */}
-    <button
-        className="action-btn btn-danger-custom"
-    >
-        <Trash2 size={18} />
-        Hapus Draft
-    </button>
-
-   {/* META */}
-<div className="meta-box">
-    {/* STATUS */}
-    <div className="meta-item">
-        <span>Status</span>
-
-        <span
-            style={{
-                color: "#F59E0B",
-                fontWeight: 700,
-            }}
+        <div
+          className="flex items-start justify-between mb-6"
+          style={{
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
         >
-            Draft
-        </span>
-    </div>
+          <div>
+            <h1
+              style={{
+                fontSize: "clamp(24px,4vw,34px)",
+                fontWeight: 800,
+                marginBottom: "8px",
+              }}
+            >
+              {editId ? "Edit Artikel" : "Editor Artikel"}
+            </h1>
 
-    {/* KATEGORI */}
-    <div
-        style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-        }}
-    >
-        <span
-            style={{
+            <p
+              className="text-muted"
+              style={{
                 fontSize: "14px",
-                color: "var(--text-muted)",
-            }}
-        >
-            Kategori
-        </span>
+                lineHeight: 1.7,
+              }}
+            >
+              {editId
+                ? "Perbarui konten artikel yang sudah ada."
+                : "Buat dan desain artikel berita UKS dengan editor modern seperti Microsoft Word."}
+            </p>
+          </div>
 
-        <select
+          <div
+            className="badge badge-glow"
             style={{
-                width: "100%",
-                height: "48px",
-                borderRadius: "14px",
-                border: "1px solid var(--border)",
-                background: "var(--bg-light)",
-                padding: "0 14px",
-                outline: "none",
-                color: "var(--text-main)",
-                fontWeight: 600,
-                cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
-            defaultValue="Kegiatan UKS"
-        >
-            <option value="Kegiatan UKS">
-                Kegiatan UKS
-            </option>
-
-            <option value="Prestasi">
-                Prestasi
-            </option>
-
-            <option value="Edukasi">
-                Edukasi
-            </option>
-        </select>
-    </div>
-
-    {/* PENULIS */}
-    <div
-        style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-        }}
-    >
-        <span
-            style={{
-                fontSize: "14px",
-                color: "var(--text-muted)",
-            }}
-        >
-            Penulis
-        </span>
-
-        <input
-            type="text"
-            placeholder="Masukkan nama penulis..."
-            defaultValue="Admin Konten"
-            style={{
-                width: "100%",
-                height: "48px",
-                borderRadius: "14px",
-                border: "1px solid var(--border)",
-                background: "var(--bg-light)",
-                padding: "0 14px",
-                outline: "none",
-                color: "var(--text-main)",
-                fontWeight: 600,
-            }}
-        />
-    </div>
-
-    {/* TERAKHIR EDIT */}
-    <div className="meta-item">
-        <span>Terakhir Edit</span>
-        <span>Hari Ini</span>
-    </div>
-</div>
-
-    {/* QUICK STYLE */}
-    <div
-        style={{
-            marginTop: "24px",
-        }}
-    >
-        
-    </div>
-</div>
-                </div>
-            </div>
+          >
+            {editId ? "Edit Artikel" : "Artikel Baru"}
+          </div>
         </div>
-    );
+
+        {/* loading overlay when fetching edit data */}
+        {loadingEdit && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 18px",
+              borderRadius: 16,
+              background: "var(--accent-glow)",
+              color: "var(--secondary)",
+              fontWeight: 600,
+              fontSize: 14,
+              marginBottom: 24,
+            }}
+          >
+            <Loader2
+              size={18}
+              style={{ animation: "ed-spin 0.8s linear infinite" }}
+            />
+            Memuat data artikel...
+            <style>{`@keyframes ed-spin { to { transform:rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* ========================= */}
+        {/* CONTENT */}
+        {/* ========================= */}
+
+        <div className="editor-grid">
+          {/* ========================= */}
+          {/* MAIN EDITOR */}
+          {/* ========================= */}
+
+          <div className="editor-card">
+            {/* COVER */}
+            <div className="cover-upload">
+              {cover ? (
+                <>
+                  <img src={cover} alt="Cover" />
+
+                  <div className="cover-overlay">
+                    <Upload size={34} />
+
+                    <label className="upload-btn">
+                      Ganti Cover
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*, image/png"
+                        onChange={handleCoverUpload}
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "30px",
+                  }}
+                >
+                  <Upload
+                    size={50}
+                    style={{
+                      marginBottom: "14px",
+                      color: "var(--primary)",
+                    }}
+                  />
+
+                  <h3
+                    style={{
+                      marginBottom: "10px",
+                    }}
+                  >
+                    Upload Cover Artikel
+                  </h3>
+
+                  <p
+                    className="text-muted"
+                    style={{
+                      marginBottom: "20px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Gunakan gambar berkualitas tinggi agar artikel terlihat
+                    profesional
+                  </p>
+
+                  <label className="upload-btn">
+                    Pilih Cover
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleCoverUpload}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* TITLE */}
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="title-input"
+              placeholder="Judul Artikel..."
+            />
+
+            {/* TOOLBAR */}
+            <div className="editor-toolbar">
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("bold")}
+                title="Bold"
+              >
+                <Bold size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("italic")}
+                title="Italic"
+              >
+                <Italic size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("underline")}
+                title="Underline"
+              >
+                <Underline size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("insertUnorderedList")}
+                title="Bullet List"
+              >
+                <List size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("insertOrderedList")}
+                title="Numbered List"
+              >
+                <ListOrdered size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("justifyLeft")}
+                title="Align Left"
+              >
+                <AlignLeft size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("justifyCenter")}
+                title="Align Center"
+              >
+                <AlignCenter size={18} />
+              </button>
+
+              <button
+                className="toolbar-btn"
+                onClick={() => handleCommand("justifyRight")}
+                title="Align Right"
+              >
+                <AlignRight size={18} />
+              </button>
+
+              <label className="toolbar-btn" title="Insert Image">
+                <ImagePlus size={18} />
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+              </label>
+
+              <button
+                className="toolbar-btn"
+                title="Insert Link"
+                onClick={() => {
+                  const url = prompt("Masukkan URL:");
+                  if (url) handleCommand("createLink", url);
+                }}
+              >
+                <LinkIcon size={18} />
+              </button>
+
+              <input
+                type="color"
+                title="Text Color"
+                onChange={(e) => handleCommand("foreColor", e.target.value)}
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  border: "none",
+                  borderRadius: "14px",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  background: "transparent",
+                }}
+              />
+
+              <select
+                className="toolbar-select"
+                onChange={(e) => handleCommand("fontSize", e.target.value)}
+                defaultValue="3"
+              >
+                <option value="3">Ukuran Font</option>
+                <option value="1">Kecil</option>
+                <option value="3">Normal</option>
+                <option value="5">Besar</option>
+                <option value="7">Sangat Besar</option>
+              </select>
+            </div>
+
+            {/* CONTENT */}
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              className="editor-content"
+            >
+              <h2>Mulai menulis artikel...</h2>
+
+              <p>
+                Anda dapat menambahkan gambar, mengubah warna teks, membuat
+                tulisan bold, italic, underline, serta mengatur layout artikel
+                dengan fleksibel.
+              </p>
+
+              <p>
+                Editor ini mendukung desain artikel modern seperti Microsoft
+                Word.
+              </p>
+            </div>
+          </div>
+
+          {/* ========================= */}
+          {/* SIDEBAR */}
+          {/* ========================= */}
+
+          <div className="side-card">
+            <h3 className="side-title">Publikasi Artikel</h3>
+
+            {/* SIMPAN DRAFT */}
+            <button
+              className="action-btn btn-outline-custom"
+              disabled={saving}
+              onClick={() => handleSave(false)}
+              style={{
+                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                border: "1px solid var(--border)",
+                color: "var(--primary)",
+              }}
+            >
+              {saving ? (
+                <Loader2
+                  size={18}
+                  style={{
+                    animation: "ed-spin 0.8s linear infinite",
+                  }}
+                />
+              ) : (
+                <Save size={18} />
+              )}
+              {saving ? "Menyimpan..." : "Simpan Draft"}
+            </button>
+
+            {/* POSTING */}
+            <button
+              className="action-btn btn-primary-custom"
+              disabled={saving}
+              onClick={() => handleSave(true)}
+            >
+              {saving ? (
+                <Loader2
+                  size={18}
+                  style={{
+                    animation: "ed-spin 0.8s linear infinite",
+                  }}
+                />
+              ) : (
+                <Upload size={18} />
+              )}
+              {saving ? "Memproses..." : "Posting Artikel"}
+            </button>
+
+            {/* PREVIEW */}
+            <button className="action-btn btn-outline-custom">
+              <Eye size={18} />
+              Preview Artikel
+            </button>
+
+            {/* BATAL / HAPUS */}
+            <button
+              className="action-btn btn-danger-custom"
+              onClick={() => navigate("/konten/dashboard")}
+            >
+              <Trash2 size={18} />
+              {editId ? "Batal Edit" : "Hapus Draft"}
+            </button>
+
+            {/* META */}
+            <div className="meta-box">
+              {/* STATUS */}
+              <div className="meta-item">
+                <span>Status</span>
+                <span
+                  style={{
+                    color: "#F59E0B",
+                    fontWeight: 700,
+                  }}
+                >
+                  {editId ? "Edit" : "Draft"}
+                </span>
+              </div>
+
+              {/* TIPE / KATEGORI */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Tipe Konten
+                </span>
+
+                <select
+                  value={selectedTipe}
+                  onChange={(e) => setSelectedTipe(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "48px",
+                    borderRadius: "14px",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg-light)",
+                    padding: "0 14px",
+                    outline: "none",
+                    color: "var(--text-main)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {TIPE_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* PENULIS */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Penulis
+                </span>
+
+                <input
+                  type="text"
+                  placeholder="Masukkan nama penulis..."
+                  defaultValue="Admin Konten"
+                  style={{
+                    width: "100%",
+                    height: "48px",
+                    borderRadius: "14px",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg-light)",
+                    padding: "0 14px",
+                    outline: "none",
+                    color: "var(--text-main)",
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+
+              {/* TERAKHIR EDIT */}
+              <div className="meta-item">
+                <span>Terakhir Edit</span>
+                <span>Hari Ini</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
+

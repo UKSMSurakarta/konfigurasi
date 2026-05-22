@@ -10,6 +10,7 @@ import {
   Megaphone,
   Globe,
   EyeOff,
+  Eye,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -478,6 +479,15 @@ export default function SuperAdminkonten() {
                             flexWrap: "nowrap",
                           }}
                         >
+                          <ActionBtn
+                            title="Preview"
+                            icon={<Eye size={13} />}
+                            bg="#F0FDF4"
+                            color="#16A34A"
+                            onClick={() =>
+                              navigate(`/superadmin/preview/${k.id}`)
+                            }
+                          />
                           <ActionBtn
                             title="Edit"
                             icon={<Pencil size={13} />}
