@@ -19,9 +19,14 @@ export default function SekolahDashboard() {
   useEffect(() => {
     Promise.all([getSekolahProfileApi(), getSekolahLevelsApi()])
       .then(([profRes, lvRes]) => {
-        const p = profRes.data || profRes;
-        setProfile(p);
-        setEditData(p);
+        const profileData = profRes?.data ?? profRes;
+        const sekolah = profileData?.sekolah ?? profileData ?? {};
+        setProfile(sekolah);
+        setEditData({
+          ...sekolah,
+          email_sekolah: sekolah.email_sekolah ?? sekolah.email ?? "",
+          telepon: sekolah.telepon ?? sekolah.no_telp ?? "",
+        });
         const lv = lvRes.data?.data ?? lvRes.data ?? [];
         setLevels(Array.isArray(lv) ? lv : []);
       })
@@ -33,7 +38,8 @@ export default function SekolahDashboard() {
     setSaving(true);
     try {
       const res = await updateSekolahProfileApi(editData);
-      setProfile(res.data || editData);
+      const updated = res.data?.sekolah ?? res.data ?? res;
+      setProfile(updated);
       setEditing(false);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
@@ -292,7 +298,7 @@ export default function SekolahDashboard() {
           >
             <ProfileItem icon={<MapPin size={18} />} label="Alamat"        value={p.alamat || "–"} editing={editing} field="alamat" editData={editData} setEditData={setEditData} />
             <ProfileItem icon={<Phone size={18} />}  label="Nomor Telepon" value={p.telepon || p.no_telp || "–"} editing={editing} field="telepon" editData={editData} setEditData={setEditData} />
-            <ProfileItem icon={<Mail size={18} />}   label="Email Sekolah" value={p.email || "–"} editing={editing} field="email" editData={editData} setEditData={setEditData} />
+            <ProfileItem icon={<Mail size={18} />}   label="Email Sekolah" value={p.email_sekolah || p.email || "–"} editing={editing} field="email_sekolah" editData={editData} setEditData={setEditData} />
             <ProfileItem icon={<School size={18} />} label="Akreditasi"    value={p.akreditasi || "–"} />
           </div>
         </div>

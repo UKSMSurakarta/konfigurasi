@@ -1,7 +1,8 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useUKS, TIER_KEYS } from "../../context/UKSContext";
-import { TIERS, PREDIKAT_UKS, PERIODE_AKTIF } from "../../data/questions";
+import { PERIODE_AKTIF } from "../../data/questions";
 import CertificateTemplate from "../../components/CertificateTemplate";
+import { getSekolahLevelsApi, getSekolahProfileApi } from "../../api/sekolah";
 import {
   Trophy, CheckCircle2, Clock3, ShieldCheck,
   Award, AlertCircle, FileBadge, Lock,
@@ -9,42 +10,69 @@ import {
 
 export default function SekolahHasilPenilaian() {
   const { user } = useAuth();
-  const { getSchoolData } = useUKS();
+  const [levels, setLevels] = useState([]);
+  const [profil, setProfil] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const schoolId = user?.school?.id;
-  const sd = getSchoolData(schoolId);
+  useEffect(() => {
+    Promise.all([
+      getSekolahLevelsApi(),
+      getSekolahProfileApi().catch(() => ({ data: {} }))
+    ]).then(([levelsRes, profilRes]) => {
+      const lvList = levelsRes.data?.data ?? levelsRes.data ?? [];
+      setLevels(Array.isArray(lvList) ? lvList : []);
 
-  const {
-    tierStatus = {},
-    answers    = {},
-    verifikasi = {},
-    verified   = false,
-    predikat   = null,
-    certificateReady = false,
-    nomorSertifikat  = "",
-    verifiedBy       = "",
-    verifiedAt       = "",
-    catatanVerifikasi = "",
-  } = sd;
+      const profileData = profilRes.data?.data ?? profilRes.data ?? profilRes ?? {};
+      setProfil({ sekolah: profileData.sekolah ?? profileData, stats: profileData.stats ?? {} });
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
-  /* ── hitung statistik ── */
-  const totalQuestions = TIER_KEYS.reduce((acc, tk) => acc + TIERS[tk].questions.length, 0);
-  const totalAnswered  = TIER_KEYS.reduce(
-    (acc, tk) => acc + TIERS[tk].questions.filter((_, i) => {
-      const a = answers[`${tk}_${i}`];
-      return a && a.memenuhi !== null && a.memenuhi !== undefined;
-    }).length, 0
-  );
-  const totalMemenuhi = TIER_KEYS.reduce(
-    (acc, tk) => acc + TIERS[tk].questions.filter((_, i) => answers[`${tk}_${i}`]?.memenuhi === true).length, 0
-  );
-  const tiersSelesai = TIER_KEYS.filter((tk) => tierStatus[tk] === "submitted").length;
-  const progressPct  = totalQuestions > 0 ? Math.round((totalAnswered / totalQuestions) * 100) : 0;
+  /* ── hitung statistik dari levels ── */
+  const totalLevels = levels.length;
+  const tiersSelesai = levels.filter((l) => l.status === "submitted" || l.status === "verified").length;
+  const isVerified = totalLevels > 0 && levels.every(l => l.status === "verified");
 
-  const pred = PREDIKAT_UKS.find((p) => p.key === predikat);
-  const statusLabel = verified ? "Terverifikasi" : totalAnswered === totalQuestions ? "Menunggu Verifikasi" : "Dalam Proses";
-  const statusColor = verified ? "#0F9D58" : totalAnswered === totalQuestions ? "#D97706" : "var(--primary)";
-  const statusBg    = verified ? "#E8FFF1" : totalAnswered === totalQuestions ? "#FFF7E8" : "#EFF6FF";
+  // Calculate aggregate percentages
+  let totalPct = 0;
+  let totalPertanyaan = 0;
+  let totalFilled = 0;
+
+  levels.forEach(l => {
+    const pct = l.status === "submitted" || l.status === "verified" ? 100 : (l.progress_persen ?? l.answered_pct ?? 0);
+    totalPct += pct;
+    // Fallback text if backend doesn't provide absolute numbers
+    totalPertanyaan += l.total_pertanyaan || 10;
+    totalFilled += l.answered_pertanyaan || Math.round((pct / 100) * (l.total_pertanyaan || 10));
+  });
+
+  const progressPct = totalLevels > 0 ? Math.round(totalPct / totalLevels) : 0;
+
+  const sekolah = profil?.sekolah ?? {};
+  const stats = profil?.stats ?? {};
+  const verified = isVerified || stats.is_verified || sekolah.status === "terverifikasi";
+  const predikat = stats.predikat || sekolah.predikat || "standar";
+  const certificateReady = verified;
+  const nomorSertifikat = stats.nomor_sertifikat || sekolah.nomor_sertifikat || `UKS-${new Date().getFullYear()}-${user?.school?.id || '01'}`;
+  const verifiedBy = stats.verified_by || sekolah.verified_by || "Admin Dinkes";
+  const verifiedAt = stats.verified_at || sekolah.verified_at || new Date().toLocaleString("id-ID");
+  const catatanVerifikasi = stats.catatan_verifikasi || sekolah.catatan_verifikasi || "";
+
+  const predLabel = predikat.charAt(0).toUpperCase() + predikat.slice(1);
+  const predColors = {
+    minimal: { bg: "#F3F4F6", color: "#6B7280" },
+    standar: { bg: "#DBEAFE", color: "#3B82F6" },
+    optimal: { bg: "#FEF3C7", color: "#F59E0B" },
+    paripurna: { bg: "#DCFCE7", color: "#16A34A" }
+  };
+  const predStyle = predColors[predikat.toLowerCase()] || predColors.standar;
+
+  const statusLabel = verified ? "Terverifikasi" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
+  const statusColor = verified ? "#0F9D58" : progressPct === 100 ? "#D97706" : "var(--primary)";
+  const statusBg = verified ? "#E8FFF1" : progressPct === 100 ? "#FFF7E8" : "#EFF6FF";
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "50px", color: "var(--text-muted)" }}>Memuat data penilaian...</div>;
+  }
 
   return (
     <div style={{ width: "100%", overflowX: "hidden" }}>
@@ -71,12 +99,12 @@ export default function SekolahHasilPenilaian() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: 6 }}>Sekolah Peserta</div>
             <h2 style={{ fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 700, marginBottom: 8, lineHeight: 1.3, wordBreak: "break-word" }}>
-              {user?.school?.name || "SDN 011 Laweyan"}
+              {user?.school?.name || sekolah.nama || sekolah.name || "SDN 011 Laweyan"}
             </h2>
             <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
-              {pred && (
-                <div style={{ padding: "5px 14px", borderRadius: "999px", background: pred.bg, color: pred.color, fontWeight: 700, fontSize: "13px" }}>
-                  Predikat {pred.label}
+              {verified && (
+                <div style={{ padding: "5px 14px", borderRadius: "999px", background: predStyle.bg, color: predStyle.color, fontWeight: 700, fontSize: "13px" }}>
+                  Predikat {predLabel}
                 </div>
               )}
               <div style={{ padding: "5px 14px", borderRadius: "999px", background: statusBg, color: statusColor, fontWeight: 700, fontSize: "13px" }}>
@@ -89,9 +117,9 @@ export default function SekolahHasilPenilaian() {
 
       {/* STAT CARDS */}
       <div className="grid gap-5 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-        <StatCard icon={<CheckCircle2 size={24} />} title="Indikator Terpenuhi"  value={`${totalMemenuhi} / ${totalQuestions}`}  color="var(--secondary)" bg="var(--accent-glow)" />
-        <StatCard icon={<ShieldCheck size={24} />}  title="Kategori Selesai"    value={`${tiersSelesai} / 4`}                  color="var(--primary)"   bg="var(--bg-light)" />
-        <StatCard icon={<Clock3 size={24} />}        title="Progress Pengisian"  value={`${progressPct}%`}                      color="#F59E0B"           bg="#FFF7E8" />
+        <StatCard icon={<CheckCircle2 size={24} />} title="Indikator Terpenuhi" value={`${totalFilled} / ${totalPertanyaan}`} color="var(--secondary)" bg="var(--accent-glow)" />
+        <StatCard icon={<ShieldCheck size={24} />} title="Kategori Selesai" value={`${tiersSelesai} / ${totalLevels || 4}`} color="var(--primary)" bg="var(--bg-light)" />
+        <StatCard icon={<Clock3 size={24} />} title="Progress Pengisian" value={`${progressPct}%`} color="#F59E0B" bg="#FFF7E8" />
       </div>
 
       {/* DETAIL PENILAIAN */}
@@ -101,15 +129,18 @@ export default function SekolahHasilPenilaian() {
           <h3 style={{ fontSize: "20px", fontWeight: 700 }}>Detail Penilaian per Tier</h3>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {TIER_KEYS.map((tk) => {
-            const tier   = TIERS[tk];
-            const total  = tier.questions.length;
-            const filled = tier.questions.filter((_, i) => answers[`${tk}_${i}`]?.memenuhi === true).length;
-            const pct    = total > 0 ? Math.round((filled / total) * 100) : 0;
-            return (
-              <ProgressItem key={tk} title={`Tier ${tier.label}`} percent={`${filled}/${total} (${pct}%)`} width={`${pct}%`} color={tier.color} />
-            );
-          })}
+          {levels.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: "13px" }}>Tidak ada data tier/level.</div>
+          ) : (
+            levels.map((level) => {
+              const done = level.status === "submitted" || level.status === "verified";
+              const pct = done ? 100 : (level.progress_persen ?? level.answered_pct ?? 0);
+              const color = done ? "#16A34A" : pct > 50 ? "#F59E0B" : "var(--primary)";
+              return (
+                <ProgressItem key={level.id} title={`Level ${level.nama || level.name}`} percent={`${pct}%`} width={`${pct}%`} color={color} />
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -135,7 +166,7 @@ export default function SekolahHasilPenilaian() {
             </div>
             {/* certificate component */}
             <CertificateTemplate
-              namaSekolah={user?.school?.name || "SDN 011 Laweyan"}
+              namaSekolah={user?.school?.name || profil?.nama || "SDN 011 Laweyan"}
               predikat={predikat}
               nomorSertif={nomorSertifikat}
               verifiedAt={verifiedAt}

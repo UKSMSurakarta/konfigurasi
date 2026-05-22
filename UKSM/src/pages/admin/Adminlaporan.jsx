@@ -13,10 +13,10 @@ export default function AdminAnalisisLaporan() {
     useEffect(() => {
         getRekapSekolahApi()
             .then(res => {
-                const d = res.data || res;
-                setData(d.stats || d);
-                const list = d.sekolah?.data ?? d.sekolah ?? [];
-                setSchools(Array.isArray(list) ? list : []);
+                const body = res.data ?? res;
+                const schoolsList = body.data ?? body.sekolah?.data ?? body.sekolah ?? (Array.isArray(body) ? body : []);
+                setData(body.stats ?? {});
+                setSchools(Array.isArray(schoolsList) ? schoolsList : []);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
