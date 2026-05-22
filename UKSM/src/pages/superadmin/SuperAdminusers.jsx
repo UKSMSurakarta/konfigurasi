@@ -224,7 +224,7 @@ export default function SuperAdminUsers() {
     try {
       const [opdRes, sekolahRes, rolesRes] = await Promise.all([
         getOpdsApi(),
-        getSekolahsApi({ limit: 1000 }),
+        getSekolahsApi({ limit: 9999 }),
         getUserRolesApi(),
       ]);
       setOpds(extractList(opdRes));
@@ -460,6 +460,7 @@ export default function SuperAdminUsers() {
           formLoading={formLoading}
           opds={opds}
           sekolahs={sekolahs}
+          roles={roles}
           onChange={handleFormChange}
           onSubmit={modal === "edit" ? handleSubmitEdit : handleSubmitAdd}
           onClose={closeModal}
@@ -1119,12 +1120,24 @@ function UserFormModal({
   formLoading,
   opds,
   sekolahs,
+  roles,
   onChange,
   onSubmit,
   onClose,
 }) {
   const showOpd = formData.role === "admin" || formData.role === "user";
   const showSekolah = formData.role === "sekolah";
+
+  const [opdQuery, setOpdQuery] = useState("");
+  const [sekolahQuery, setSekolahQuery] = useState("");
+
+  const selectedOpdName =
+    opds.find((o) => String(o.id) === String(formData.opd_id))?.nama || "";
+  const selectedSekolahName =
+    sekolahs.find((s) => String(s.id) === String(formData.sekolah_id))?.nama || "";
+
+  const opdInputValue = opdQuery !== "" ? opdQuery : selectedOpdName;
+  const sekolahInputValue = sekolahQuery !== "" ? sekolahQuery : selectedSekolahName;
 
   return (
     <Modal
@@ -1192,36 +1205,48 @@ function UserFormModal({
         {/* OPD — shown for admin and user roles */}
         {showOpd && (
           <FormGroup label="OPD">
-            <select
-              value={formData.opd_id}
-              onChange={(e) => onChange("opd_id", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer" }}
-            >
+            <input
+              list="opd-list"
+              value={opdInputValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                setOpdQuery(val);
+                const match = opds.find((o) => o.nama === val);
+                onChange("opd_id", match ? String(match.id) : "");
+              }}
+              placeholder="Ketik untuk mencari atau pilih OPD"
+              style={inputStyle}
+            />
+            <datalist id="opd-list">
               <option value="">— Pilih OPD —</option>
               {opds.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nama}
-                </option>
+                <option key={o.id} value={o.nama} />
               ))}
-            </select>
+            </datalist>
           </FormGroup>
         )}
 
         {/* Sekolah — shown for sekolah role */}
         {showSekolah && (
           <FormGroup label="Sekolah">
-            <select
-              value={formData.sekolah_id}
-              onChange={(e) => onChange("sekolah_id", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer" }}
-            >
+            <input
+              list="sekolah-list"
+              value={sekolahInputValue}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSekolahQuery(val);
+                const match = sekolahs.find((s) => s.nama === val);
+                onChange("sekolah_id", match ? String(match.id) : "");
+              }}
+              placeholder="Ketik untuk mencari atau pilih Sekolah"
+              style={inputStyle}
+            />
+            <datalist id="sekolah-list">
               <option value="">— Pilih Sekolah —</option>
               {sekolahs.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nama}
-                </option>
+                <option key={s.id} value={s.nama} />
               ))}
-            </select>
+            </datalist>
           </FormGroup>
         )}
 
@@ -1669,7 +1694,7 @@ const inputStyle = {
   height: "48px",
   borderRadius: "14px",
   border: "1px solid var(--border)",
-  background: "var(--card-bg)",
+  background: "#ffffff",
   padding: "0 16px",
   outline: "none",
   fontSize: "14px",
