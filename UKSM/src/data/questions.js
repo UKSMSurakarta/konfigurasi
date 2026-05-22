@@ -108,7 +108,7 @@ export const PREDIKAT_UKS = [
    Digunakan di: SuperAdminperiode, SuperadminDashboard, SekolahDashboard, AdminDashboard
 ============================================================= */
 export const PERIODE_LIST = [];
-export const PERIODE_AKTIF = PERIODE_LIST.find((p) => p.status === "Aktif") || PERIODE_LIST[0];
+export const PERIODE_AKTIF = PERIODE_LIST.find((p) => p.status === "Aktif") || PERIODE_LIST[0] || { nama: "Periode Saat Ini" };
 
 /* =============================================================
    JENJANG & STATUS OPTIONS

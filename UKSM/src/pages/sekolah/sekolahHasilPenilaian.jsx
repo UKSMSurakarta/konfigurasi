@@ -11,20 +11,37 @@ import {
 export default function SekolahHasilPenilaian() {
   const { user } = useAuth();
   const [levels, setLevels] = useState([]);
-  const [profil, setProfil] = useState(null);
+  const [profil, setProfil] = useState({ sekolah: {}, stats: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      getSekolahLevelsApi(),
-      getSekolahProfileApi().catch(() => ({ data: {} }))
-    ]).then(([levelsRes, profilRes]) => {
-      const lvList = levelsRes.data?.data ?? levelsRes.data ?? [];
-      setLevels(Array.isArray(lvList) ? lvList : []);
+    let active = true;
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        const [levelsRes, profilRes] = await Promise.all([
+          getSekolahLevelsApi(),
+          getSekolahProfileApi().catch(() => ({ data: {} })),
+        ]);
 
-      const profileData = profilRes.data?.data ?? profilRes.data ?? profilRes ?? {};
-      setProfil({ sekolah: profileData.sekolah ?? profileData, stats: profileData.stats ?? {} });
-    }).catch(console.error).finally(() => setLoading(false));
+        if (!active) return;
+
+        const lvList = levelsRes.data?.data ?? levelsRes.data ?? [];
+        setLevels(Array.isArray(lvList) ? lvList : []);
+
+        const profileData = profilRes.data?.data ?? profilRes.data ?? profilRes ?? {};
+        setProfil({ sekolah: profileData.sekolah ?? profileData ?? {}, stats: profileData.stats ?? {} });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetch();
+    return () => {
+      active = false;
+    };
   }, []);
 
   /* ── hitung statistik dari levels ── */
@@ -47,13 +64,16 @@ export default function SekolahHasilPenilaian() {
 
   const progressPct = totalLevels > 0 ? Math.round(totalPct / totalLevels) : 0;
 
-  const sekolah = profil?.sekolah ?? {};
+  // normalize user school property (some responses use `school`, others `sekolah`)
+  const userSchool = user?.school ?? user?.sekolah ?? null;
+  const sekolah = profil?.sekolah ?? profil?.sekolah ?? userSchool ?? {};
   const stats = profil?.stats ?? {};
   const verified = isVerified || stats.is_verified || sekolah.status === "terverifikasi";
   const predikat = stats.predikat || sekolah.predikat || "standar";
   const certificateReady = verified;
-  const nomorSertifikat = stats.nomor_sertifikat || sekolah.nomor_sertifikat || `UKS-${new Date().getFullYear()}-${user?.school?.id || '01'}`;
+  const nomorSertifikat = stats.nomor_sertifikat || sekolah.nomor_sertifikat || `UKS-${new Date().getFullYear()}-${userSchool?.id || '01'}`;
   const verifiedBy = stats.verified_by || sekolah.verified_by || "Admin Dinkes";
+
   const verifiedAt = stats.verified_at || sekolah.verified_at || new Date().toLocaleString("id-ID");
   const catatanVerifikasi = stats.catatan_verifikasi || sekolah.catatan_verifikasi || "";
 
