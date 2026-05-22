@@ -37,6 +37,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/monitoring', [\App\Http\Controllers\API\Superadmin\DashboardController::class, 'monitoring']);
 
             // User Management
+            Route::get('users/roles', [\App\Http\Controllers\API\Superadmin\UserController::class, 'roles']);
             Route::apiResource('users', \App\Http\Controllers\API\Superadmin\UserController::class);
             Route::patch('users/{id}/toggle-active', [\App\Http\Controllers\API\Superadmin\UserController::class, 'toggleActive']);
             Route::post('users/{id}/reset-password', [\App\Http\Controllers\API\Superadmin\UserController::class, 'resetPassword']);

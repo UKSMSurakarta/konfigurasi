@@ -200,16 +200,19 @@ export default function SuperadminSekolah() {
       return;
     }
     setSubmitting(true);
+    const shouldResetPage = !editTarget && currentPage !== 1;
     try {
       if (editTarget) {
         await updateSekolahApi(editTarget.id, form);
         showToast("success", "Data sekolah berhasil diperbarui.");
+        fetchSekolahs();
       } else {
+        if (shouldResetPage) setCurrentPage(1);
         await createSekolahApi(form);
         showToast("success", "Sekolah baru berhasil ditambahkan.");
+        if (!shouldResetPage) fetchSekolahs();
       }
       closeModal();
-      fetchSekolahs();
     } catch (err) {
       console.error(err);
       const msg =

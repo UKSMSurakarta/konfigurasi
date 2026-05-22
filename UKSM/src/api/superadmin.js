@@ -10,6 +10,8 @@ export const getSuperadminMonitoringApi = (params) =>
 // Users
 export const getUsersApi = (params) =>
   axiosInstance.get("/superadmin/users", { params }).then((r) => r.data);
+export const getUserRolesApi = () =>
+  axiosInstance.get("/superadmin/users/roles").then((r) => r.data);
 export const createUserApi = (data) =>
   axiosInstance.post("/superadmin/users", data).then((r) => r.data);
 export const updateUserApi = (id, data) =>

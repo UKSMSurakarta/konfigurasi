@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   getUsersApi,
+  getUserRolesApi,
   createUserApi,
   updateUserApi,
   deleteUserApi,
@@ -47,6 +48,13 @@ const roleLabel = {
   sekolah: "Sekolah",
   user: "Konten",
 };
+
+const DEFAULT_ROLES = [
+  { key: "superadmin", label: "Superadmin" },
+  { key: "admin", label: "Admin" },
+  { key: "sekolah", label: "Sekolah" },
+  { key: "user", label: "Konten" },
+];
 
 const EMPTY_FORM = {
   name: "",
@@ -138,6 +146,7 @@ export default function SuperAdminUsers() {
   });
   const [opds, setOpds] = useState([]);
   const [sekolahs, setSekolahs] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     lastPage: 1,
@@ -213,12 +222,14 @@ export default function SuperAdminUsers() {
 
   const fetchDropdowns = useCallback(async () => {
     try {
-      const [opdRes, sekolahRes] = await Promise.all([
+      const [opdRes, sekolahRes, rolesRes] = await Promise.all([
         getOpdsApi(),
-        getSekolahsApi(),
+        getSekolahsApi({ limit: 1000 }),
+        getUserRolesApi(),
       ]);
       setOpds(extractList(opdRes));
       setSekolahs(extractList(sekolahRes));
+      setRoles(extractList(rolesRes));
     } catch (err) {
       console.error("fetchDropdowns error:", err);
     }
@@ -626,9 +637,11 @@ export default function SuperAdminUsers() {
               }}
             >
               <option value="">Semua Role</option>
-              <option value="admin">Admin</option>
-              <option value="sekolah">Sekolah</option>
-              <option value="user">Konten / User</option>
+              {(roles.length ? roles : DEFAULT_ROLES).map((role) => (
+                <option key={role.key} value={role.key}>
+                  {role.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -1168,9 +1181,11 @@ function UserFormModal({
             onChange={(e) => onChange("role", e.target.value)}
             style={{ ...inputStyle, cursor: "pointer" }}
           >
-            <option value="admin">Admin</option>
-            <option value="sekolah">Sekolah</option>
-            <option value="user">Konten / User</option>
+            {(roles.length ? roles : DEFAULT_ROLES).map((role) => (
+              <option key={role.key} value={role.key}>
+                {role.label}
+              </option>
+            ))}
           </select>
         </FormGroup>
 

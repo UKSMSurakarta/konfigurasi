@@ -29,6 +29,19 @@ class UserController extends Controller
         ]);
     }
 
+    public function roles()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                ['key' => 'superadmin', 'label' => 'Superadmin'],
+                ['key' => 'admin', 'label' => 'Admin'],
+                ['key' => 'sekolah', 'label' => 'Sekolah'],
+                ['key' => 'user', 'label' => 'Konten'],
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
