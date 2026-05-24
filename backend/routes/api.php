@@ -96,6 +96,7 @@ Route::prefix('v1')->group(function () {
             // Verification
             Route::prefix('verifikasi')->group(function () {
                 Route::get('/', [\App\Http\Controllers\API\Admin\VerificationController::class, 'index']);
+                Route::get('/sekolah/{sekolahId}', [\App\Http\Controllers\API\Admin\VerificationController::class, 'showDetails']);
                 Route::post('/{sekolahId}/level/{levelId}', [\App\Http\Controllers\API\Admin\VerificationController::class, 'verify']);
             });
 

@@ -12,6 +12,13 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    protected $service;
+
+    public function __construct(\App\Services\AssessmentService $service)
+    {
+        $this->service = $service;
+    }
+
     public function index()
     {
         $totalSekolah = Sekolah::count();
@@ -45,7 +52,7 @@ class DashboardController extends Controller
                 if ($subs->contains('status', 'verified')) {
                     $selesaiCount++;
                     $belumCount--;
-                } elseif ($subs->contains('status', 'final')) {
+                } elseif ($subs->contains('status', 'final') || $subs->contains('status', 'submitted')) {
                     $menungguCount++;
                     $belumCount--;
                 } elseif ($subs->contains('status', 'draft')) {
@@ -148,15 +155,18 @@ class DashboardController extends Controller
             $progress = 0;
 
             if ($subs->isNotEmpty()) {
+                // Get dynamic progress and verified status from service
+                $stats = $this->service->getSchoolStats($s->id, $activePeriodId);
+                $progress = $stats['progress'];
+
                 if ($subs->contains('status', 'verified')) {
                     $status = 'Terverifikasi';
-                    $progress = 100;
                 } elseif ($subs->contains('status', 'final')) {
                     $status = 'Menunggu Verifikasi';
-                    $progress = 75;
+                } elseif ($subs->contains('status', 'submitted')) {
+                    $status = 'Menunggu Verifikasi';
                 } elseif ($subs->contains('status', 'draft')) {
                     $status = 'Proses';
-                    $progress = 25;
                 }
             }
 

@@ -13,6 +13,10 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
+  X,
+  ShieldCheck,
+  Award,
+  School,
 } from "lucide-react";
 import { getSuperadminMonitoringApi } from "../../api/superadmin";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +28,8 @@ import {
   createAdminLevelApi,
   updateAdminLevelApi,
   deleteAdminLevelApi,
+  verifikasiSekolahApi,
+  getSekolahAssessmentDetailApi,
 } from "../../api/admin";
 
 /* ─────────────────────────────────────────────────────────────
@@ -36,6 +42,13 @@ const LEVEL_COLORS = [
   { color: "#9333EA", bg: "#F3E8FF" },
   { color: "#0891B2", bg: "#CFFAFE" },
   { color: "#E11D48", bg: "#FFE4E6" },
+];
+
+const PREDIKAT_LIST = [
+  { key: "minimal", label: "Minimal", deskripsi: "Memenuhi syarat minimal", color: "#6B7280", bg: "#F3F4F6" },
+  { key: "standar", label: "Standar", deskripsi: "Memenuhi standar dasar", color: "#3B82F6", bg: "#DBEAFE" },
+  { key: "optimal", label: "Optimal", deskripsi: "Melampaui standar", color: "#F59E0B", bg: "#FEF3C7" },
+  { key: "paripurna", label: "Paripurna", deskripsi: "Tingkat tertinggi", color: "#16A34A", bg: "#DCFCE7" },
 ];
 
 const STATUS_CFG = {
@@ -77,6 +90,17 @@ export default function SuperAdminAssessment() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  /* ── Detail state ─────────────────────────────────────── */
+  const [detailSchool, setDetailSchool] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  /* ── Verification modal state ─────────────────────────── */
+  const [modalVerif, setModalVerif] = useState(null);
+  const [selPredikat, setSelPred] = useState("standar");
+  const [catatan, setCatatan] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
   /* ── Fetch monitoring ─────────────────────────────────── */
   useEffect(() => {
     setLoadingSchools(true);
@@ -110,6 +134,54 @@ export default function SuperAdminAssessment() {
     const matchStatus = !statusFilter || s.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  /* ── Handlers ─────────────────────────────────────────── */
+  const fetchData = () => {
+    setLoadingSchools(true);
+    getSuperadminMonitoringApi()
+      .then((res) => {
+        const raw = res?.data?.data ?? res?.data ?? res ?? [];
+        setSchools(Array.isArray(raw) ? raw : []);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingSchools(false));
+  };
+
+  async function handleShowDetail(school) {
+    setDetailSchool(school);
+    setLoadingDetail(true);
+    try {
+      const json = await getSekolahAssessmentDetailApi(school.id);
+      if (json.success) {
+        setDetailData(json.data);
+      }
+    } catch (err) {
+      console.error("Gagal ambil detail:", err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  }
+
+  async function handleVerify(schoolId, levelId, status = "disetujui") {
+    if (!schoolId) return;
+    setConfirming(true);
+    try {
+      await verifikasiSekolahApi(schoolId, levelId || 1, {
+        predikat: null,
+        catatan: catatan,
+        status: status,
+      });
+      setModalVerif(null);
+      setDetailSchool(null);
+      setCatatan("");
+      setSelPred("standar");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setConfirming(false);
+    }
+  }
 
 
   /* ── Render ───────────────────────────────────────────── */
@@ -409,7 +481,7 @@ export default function SuperAdminAssessment() {
                         </td>
                         <td style={td}>
                           <button
-                            onClick={() => navigate("/superadmin/verifikasi")}
+                            onClick={() => handleShowDetail(row)}
                             className="btn btn-outline"
                             style={{
                               padding: "6px 14px",
@@ -419,6 +491,8 @@ export default function SuperAdminAssessment() {
                               alignItems: "center",
                               gap: "5px",
                               cursor: "pointer",
+                              border: "1px solid var(--border)",
+                              background: "white"
                             }}
                           >
                             <Eye size={13} /> Detail
@@ -434,7 +508,139 @@ export default function SuperAdminAssessment() {
         )}
       </div>
 
+      {/* ═══════════════════ MODAL DETAIL ═══════════════════ */}
+      {detailSchool && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div style={{ background: "var(--card-bg)", borderRadius: "28px", width: "100%", maxWidth: "900px", maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ padding: "24px 32px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: 1 }}>
+                <div style={{ width: 48, height: 48, borderRadius: "16px", background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                  <School size={24} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: "20px", fontWeight: 700, margin: 0 }}>Detail Jawaban: {detailSchool.nama}</h2>
+                  <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>Progres: {detailData ? detailData.stats.progress : detailSchool.progress}%</div>
+                </div>
+              </div>
+              <button onClick={() => setDetailSchool(null)} style={{ background: "rgba(0,0,0,0.05)", border: "none", width: 40, height: 40, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X size={20} />
+              </button>
+            </div>
 
+            <div style={{ padding: "24px 32px", overflowY: "auto", flex: 1 }}>
+              {loadingDetail ? (
+                <div style={{ textAlign: "center", padding: "40px" }}>
+                  <div style={{ width: 30, height: 30, border: "2px solid #eee", borderTop: "2px solid var(--primary)", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 10px" }} />
+                  <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Memuat detail jawaban...</p>
+                </div>
+              ) : detailData ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  {detailData.details.map((lvl) => (
+                    <div key={lvl.level_id} style={{ border: "1px solid var(--border)", borderRadius: "18px", overflow: "hidden" }}>
+                      <div style={{ background: "var(--bg-light)", padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ fontWeight: 700, fontSize: "15px" }}>{lvl.level_nama}</div>
+                        <div style={{ fontSize: "12px", background: lvl.status === 'verified' ? '#DCFCE7' : '#FEF3C7', color: lvl.status === 'verified' ? '#16A34A' : '#B45309', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
+                          {lvl.status.toUpperCase()}
+                        </div>
+                      </div>
+                      <div style={{ padding: "0" }}>
+                        {lvl.questions.length === 0 ? (
+                          <div style={{ padding: "20px", textAlign: "center", fontSize: "13px", color: "var(--text-muted)" }}>Belum ada jawaban.</div>
+                        ) : lvl.questions.map((q, qidx) => (
+                          <div key={q.id} style={{ padding: "16px 20px", borderBottom: qidx === lvl.questions.length - 1 ? "none" : "1px solid var(--bg-light)" }}>
+                            <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}>{qidx + 1}. {q.pertanyaan}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+                              <div style={{ fontSize: "13px", color: q.jawaban === 'Memenuhi' ? "#16A34A" : "#DC2626", fontWeight: 700 }}>{q.jawaban}</div>
+                              {q.bukti_links && q.bukti_links.length > 0 && (
+                                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                  {q.bukti_links.map((link, lidx) => (
+                                    <a key={lidx} href={link} target="_blank" rel="noreferrer" style={{ fontSize: "11px", color: "var(--primary)", background: "var(--primary-light)", padding: "4px 8px", borderRadius: "6px", textDecoration: "none", fontWeight: 600 }}>
+                                      Bukti {lidx + 1}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "40px", color: "#DC2626" }}>Gagal memuat data.</div>
+              )}
+            </div>
+
+            <div style={{ padding: "24px 32px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: "12px", background: "var(--bg-light)" }}>
+              <button onClick={() => setDetailSchool(null)} style={{ padding: "0 24px", height: "46px", borderRadius: "12px", border: "1px solid var(--border)", background: "white", fontWeight: 600, cursor: "pointer" }}>
+                Tutup
+              </button>
+              {detailData && !detailData.stats.is_verified && (
+                <button
+                  onClick={() => { setModalVerif(detailSchool); setSelPred("standar"); setCatatan(""); }}
+                  style={{ padding: "0 24px", height: "46px", borderRadius: "12px", border: "none", background: "var(--primary)", color: "white", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Verifikasi
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ MODAL VERIFIKASI ═══════════════ */}
+      {modalVerif && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div style={{ background: "var(--card-bg)", borderRadius: "28px", padding: "32px", maxWidth: "520px", width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: "22px" }}>
+              <div className="flex items-center gap-3">
+                <div style={{ width: 44, height: 44, borderRadius: "14px", background: "#DCFCE7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ShieldCheck size={22} color="#16A34A" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "18px" }}>Konfirmasi Verifikasi</div>
+                  <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>{modalVerif.nama}</div>
+                </div>
+              </div>
+              <button onClick={() => setModalVerif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                <X size={22} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "22px" }}>
+              <label style={{ fontSize: "14px", fontWeight: 600, display: "block", marginBottom: "8px" }}>Catatan Verifikasi (opsional)</label>
+              <textarea
+                value={catatan} onChange={(e) => setCatatan(e.target.value)}
+                placeholder="Tambahkan catatan untuk sekolah..."
+                rows={3}
+                style={{ width: "100%", borderRadius: "14px", border: "1px solid var(--border)", background: "var(--card-bg)", padding: "12px 14px", fontSize: "14px", outline: "none", resize: "vertical", color: "var(--text-main)", boxSizing: "border-box" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button onClick={() => setModalVerif(null)} style={{ flex: 1, height: "48px", borderRadius: "14px", border: "1px solid var(--border)", background: "var(--card-bg)", color: "var(--text-main)", fontWeight: 600, cursor: "pointer" }}>
+                Batal
+              </button>
+              <button
+                onClick={() => handleVerify(modalVerif.id, 1, "ditolak")}
+                disabled={confirming}
+                style={{ flex: 1, height: "48px", borderRadius: "14px", border: "1px solid #FECACA", background: "#FEE2E2", color: "#B91C1C", fontWeight: 700, cursor: confirming ? "not-allowed" : "pointer", opacity: confirming ? 0.7 : 1 }}
+              >
+                {confirming ? "..." : "Tolak"}
+              </button>
+              <button
+                onClick={() => handleVerify(modalVerif.id, 1, "disetujui")}
+                disabled={confirming}
+                style={{ flex: 2, height: "48px", borderRadius: "14px", border: "none", background: "linear-gradient(135deg,#2563EB,#1D4ED8)", color: "white", fontWeight: 700, cursor: confirming ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: confirming ? 0.7 : 1 }}
+              >
+                <ShieldCheck size={18} />
+                {confirming ? "Memproses..." : "Verifikasi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

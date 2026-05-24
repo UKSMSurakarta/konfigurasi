@@ -86,17 +86,21 @@ class AssessmentController extends Controller
         $sekolahId = auth()->user()->sekolah_id;
         $period = $this->service->getActivePeriod();
 
-        $status = $this->service->getLevelStatus($level, $sekolahId, $period->id);
-        if ($status === 'locked' || $status === 'final' || $status === 'verified') {
+        // Hanya blokir jika sudah verified oleh admin - status final & submitted masih bisa di-edit
+        $currentStatus = $this->service->getLevelStatus($level, $sekolahId, $period->id);
+        if ($currentStatus === 'verified') {
             return response()->json([
                 'success' => false, 
-                'message' => 'Level ini terkunci atau sudah dalam status final/verified.'
+                'message' => 'Level ini sudah diverifikasi oleh admin dan tidak dapat diubah.'
             ], 403);
         }
 
+        // Support both legacy fields and new frontend format (memenuhi + bukti_links)
         $request->validate([
             'jawabans' => 'required|array',
             'jawabans.*.pertanyaan_id' => 'required|exists:pertanyaans,id',
+            'jawabans.*.memenuhi' => 'nullable|boolean',
+            'jawabans.*.bukti_links' => 'nullable|array',
             'jawabans.*.jawaban_teks' => 'nullable|string',
             'jawabans.*.nilai' => 'nullable|integer',
             'jawabans.*.file_path' => 'nullable|string',
@@ -104,6 +108,26 @@ class AssessmentController extends Controller
 
         DB::transaction(function () use ($request, $sekolahId, $period, $id) {
             foreach ($request->jawabans as $j) {
+                // Map frontend format to DB columns
+                $memenuhiVal = $j['memenuhi'] ?? null;
+                $buktiLinks  = $j['bukti_links'] ?? [];
+
+                // jawaban_teks: 'ya' / 'tidak' / null from memenuhi boolean
+                $jawabanTeks = null;
+                if ($memenuhiVal === true || $memenuhiVal === 1 || $memenuhiVal === 'true' || $memenuhiVal === '1') {
+                    $jawabanTeks = 'ya';
+                } elseif ($memenuhiVal === false || $memenuhiVal === 0 || $memenuhiVal === 'false' || $memenuhiVal === '0') {
+                    $jawabanTeks = 'tidak';
+                } elseif (!empty($j['jawaban_teks'])) {
+                    $jawabanTeks = $j['jawaban_teks'];
+                }
+
+                // Nilai: 1 jika memenuhi, 0 jika tidak
+                $nilai = ($memenuhiVal === true || $memenuhiVal === 1 || $memenuhiVal === 'true' || $memenuhiVal === '1') ? 1 : (isset($j['nilai']) ? $j['nilai'] : 0);
+
+                // file_path: simpan links sebagai JSON string, atau gunakan file_path lama
+                $filePath = !empty($buktiLinks) ? json_encode($buktiLinks) : ($j['file_path'] ?? null);
+
                 Jawaban::updateOrCreate(
                     [
                         'sekolah_id' => $sekolahId,
@@ -111,27 +135,31 @@ class AssessmentController extends Controller
                         'period_id' => $period->id,
                     ],
                     [
-                        'jawaban_teks' => $j['jawaban_teks'] ?? null,
-                        'nilai' => $j['nilai'] ?? 0,
-                        'file_path' => $j['file_path'] ?? null,
-                        'is_final' => false,
+                        'jawaban_teks' => $jawabanTeks,
+                        'nilai'        => $nilai,
+                        'file_path'    => $filePath,
+                        'is_final'     => false,
                     ]
                 );
             }
 
+            // Simpan/update submission sebagai 'submitted' (data sudah dikirim, tapi masih bisa direvisi)
             LevelSubmission::updateOrCreate(
                 [
                     'sekolah_id' => $sekolahId,
-                    'level_id' => $id,
-                    'period_id' => $period->id,
+                    'level_id'   => $id,
+                    'period_id'  => $period->id,
                 ],
-                ['status' => 'draft']
+                [
+                    'status'       => 'submitted',
+                    'submitted_at' => now(),
+                ]
             );
         });
 
         return response()->json([
             'success' => true,
-            'message' => 'Jawaban berhasil disimpan sebagai draft.',
+            'message' => 'Jawaban berhasil disimpan.',
             'data' => null
         ]);
     }
@@ -145,50 +173,67 @@ class AssessmentController extends Controller
         $sekolahId = auth()->user()->sekolah_id;
         $period = $this->service->getActivePeriod();
 
-        // Validation: All required questions must be answered
-        $requiredIds = $level->pertanyaans()->where('is_required', true)->pluck('id');
+        if (!$period) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada periode aktif.'], 404);
+        }
+
+        // Validasi: hanya cek apakah semua pertanyaan sudah ada jawabannya (tidak wajib ada bukti)
+        $allPertanyaanIds = $level->pertanyaans()->pluck('id');
         $answeredIds = Jawaban::where('sekolah_id', $sekolahId)
             ->where('period_id', $period->id)
-            ->whereIn('pertanyaan_id', $requiredIds)
-            ->where(function ($q) {
-                $q->whereNotNull('jawaban_teks')->orWhereNotNull('file_path');
-            })
+            ->whereIn('pertanyaan_id', $allPertanyaanIds)
+            ->whereNotNull('jawaban_teks')
             ->pluck('pertanyaan_id');
 
-        if ($requiredIds->count() > $answeredIds->count()) {
+        if ($allPertanyaanIds->count() > $answeredIds->count()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Harap lengkapi semua pertanyaan wajib sebelum submit final.'
+                'message' => 'Semua pertanyaan harus dijawab terlebih dahulu sebelum submit final.'
             ], 422);
         }
 
-        DB::transaction(function () use ($sekolahId, $id, $period) {
-            $submission = LevelSubmission::where('sekolah_id', $sekolahId)
-                ->where('level_id', $id)
-                ->where('period_id', $period->id)
-                ->first();
+        // Blokir jika sudah diverifikasi admin
+        $existing = LevelSubmission::where('sekolah_id', $sekolahId)
+            ->where('level_id', $id)
+            ->where('period_id', $period->id)
+            ->first();
 
+        if ($existing && $existing->status === 'verified') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Level sudah diverifikasi oleh admin.'
+            ], 403);
+        }
+
+        DB::transaction(function () use ($sekolahId, $id, $period, $allPertanyaanIds) {
             $totalSkor = Jawaban::where('sekolah_id', $sekolahId)
                 ->where('period_id', $period->id)
-                ->whereIn('pertanyaan_id', Level::find($id)->pertanyaans()->pluck('id'))
+                ->whereIn('pertanyaan_id', $allPertanyaanIds)
                 ->sum('nilai');
 
-            $submission->update([
-                'status' => 'final',
-                'submitted_at' => now(),
-                'finalized_at' => now(),
-                'total_skor' => $totalSkor
-            ]);
+            LevelSubmission::updateOrCreate(
+                [
+                    'sekolah_id' => $sekolahId,
+                    'level_id'   => $id,
+                    'period_id'  => $period->id,
+                ],
+                [
+                    'status'       => 'final',
+                    'submitted_at' => now(),
+                    'finalized_at' => now(),
+                    'total_skor'   => $totalSkor,
+                ]
+            );
 
             Jawaban::where('sekolah_id', $sekolahId)
                 ->where('period_id', $period->id)
-                ->whereIn('pertanyaan_id', Level::find($id)->pertanyaans()->pluck('id'))
+                ->whereIn('pertanyaan_id', $allPertanyaanIds)
                 ->update(['is_final' => true, 'submitted_at' => now()]);
         });
 
         return response()->json([
             'success' => true,
-            'message' => 'Assessment Level berhasil di-submit secara permanen.',
+            'message' => 'Jawaban berhasil dikunci secara permanen.',
             'data' => null
         ]);
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Activity, CheckCircle, Clock, Upload, Link as LinkIcon, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { Activity, CheckCircle, Clock, Upload, Link as LinkIcon, ChevronDown, ChevronUp, Lock, Pencil } from "lucide-react";
 import {
     getSekolahLevelsApi,
     getPertanyaanLevelApi,
@@ -16,12 +16,15 @@ export default function SekolahAssessment() {
 
     const [levels, setLevels] = useState([]);
     const [openLevel, setOpenLevel] = useState(null);
-    const [pertanyaan, setPertanyaan] = useState({});  // { levelId: [...] }
-    const [jawaban, setJawaban] = useState({});  // { `${levelId}_${pertId}`: {memenuhi, bukti_files, bukti_links} }
+    const [pertanyaan, setPertanyaan] = useState({});
+    const [jawaban, setJawaban] = useState({});
     const [loading, setLoading] = useState(true);
     const [loadingPert, setLoadingPert] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [linkInput, setLinkInput] = useState({});
+    // Track which submitted levels are being edited/revised
+    const [editingLevels, setEditingLevels] = useState({});
 
     // Fetch semua levels + status
     const fetchLevels = useCallback(() => {
@@ -40,8 +43,24 @@ export default function SekolahAssessment() {
 
     useEffect(() => { fetchLevels(); }, [fetchLevels]);
 
+    // Apakah level sedang dalam mode edit
+    function isEditing(levelId) {
+        return !!editingLevels[levelId];
+    }
+
+    // Toggle mode edit untuk level yang sudah disubmit
+    function handleStartEdit(levelId) {
+        setEditingLevels(prev => ({ ...prev, [levelId]: true }));
+        setOpenLevel(levelId);
+    }
+
+    function handleCancelEdit(levelId) {
+        setEditingLevels(prev => ({ ...prev, [levelId]: false }));
+    }
+
     // Fetch pertanyaan per level (on demand)
     async function handleOpenLevel(level) {
+        const isSubmitted = level.status === "submitted" || level.status === "verified" || level.status === "final";
         if (level.status === "locked") {
             showToast("Selesaikan level sebelumnya terlebih dahulu untuk membuka level ini.", "error");
             return;
@@ -53,17 +72,35 @@ export default function SekolahAssessment() {
         try {
             const res = await getPertanyaanLevelApi(id);
             const list = res.data?.pertanyaans ?? res.data?.data ?? res.data ?? [];
-            // Preload jawaban yang sudah ada dari backend
-            const existingJawaban = res.data?.jawaban ?? {};
+            const pertList = Array.isArray(list) ? list : [];
             const jawabanMap = {};
-            Object.entries(existingJawaban).forEach(([pertId, j]) => {
-                jawabanMap[`${id}_${pertId}`] = {
-                    memenuhi: j.memenuhi,
-                    bukti_links: j.bukti_links || [],
-                    bukti_files: [],
-                };
+
+            pertList.forEach(p => {
+                const j = p.jawabans?.[0]; // Ambil jawaban pertama (seharusnya hanya ada 1 per periode)
+                if (j) {
+                    // Map jawaban_teks ('ya'/'tidak') ke boolean memenuhi
+                    const isMemenuhi = j.jawaban_teks === "ya";
+
+                    // Map file_path (JSON string) ke array bukti_links
+                    let links = [];
+                    if (j.file_path) {
+                        try {
+                            const parsed = JSON.parse(j.file_path);
+                            links = Array.isArray(parsed) ? parsed : [j.file_path];
+                        } catch (err) {
+                            links = [j.file_path];
+                        }
+                    }
+
+                    jawabanMap[`${id}_${p.id}`] = {
+                        memenuhi: isMemenuhi,
+                        bukti_links: links,
+                        bukti_files: [],
+                    };
+                }
             });
-            setPertanyaan(prev => ({ ...prev, [id]: Array.isArray(list) ? list : [] }));
+
+            setPertanyaan(prev => ({ ...prev, [id]: pertList }));
             setJawaban(prev => ({ ...prev, ...jawabanMap }));
         } catch (e) {
             console.error(e);
@@ -145,6 +182,8 @@ export default function SekolahAssessment() {
         }
     }
 
+    // Cek apakah semua pertanyaan di level sudah dijawab (memenuhi tidak null)
+    // Bukti TIDAK wajib
     function isTierComplete(levelId) {
         const perts = pertanyaan[levelId] || [];
         return perts.length > 0 && perts.every(p => {
@@ -153,32 +192,49 @@ export default function SekolahAssessment() {
         });
     }
 
+    // Bangun array jawabans dari state
+    function buildJawabans(levelId) {
+        const perts = pertanyaan[levelId] || [];
+        return perts.map(p => {
+            const j = getJawaban(levelId, p.id);
+            return { pertanyaan_id: p.id, memenuhi: j.memenuhi, bukti_links: j.bukti_links || [] };
+        });
+    }
+
+    // Simpan jawaban saja (tidak mengunci level)
+    async function handleSaveLevel(level) {
+        if (!isTierComplete(level.id)) {
+            showToast("Pilih Memenuhi atau Belum untuk setiap pertanyaan", "error");
+            return;
+        }
+        setSaving(true);
+        try {
+            await saveJawabanApi(level.id, buildJawabans(level.id));
+            showToast(`Jawaban Level ${level.nama || level.name} berhasil disimpan!`);
+            fetchLevels(); // Refresh status to 'submitted'
+        } catch (err) {
+            showToast(err?.response?.data?.message || "Gagal menyimpan jawaban", "error");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    // Simpan + Submit Final (mengunci level)
     async function handleSubmitLevel(level) {
         if (!isTierComplete(level.id)) {
-            showToast("Semua pertanyaan harus dijawab terlebih dahulu", "error");
+            showToast("Pilih Memenuhi atau Belum untuk setiap pertanyaan", "error");
             return;
         }
         setSubmitting(true);
         try {
-            // Build jawabans array
-            const perts = pertanyaan[level.id] || [];
-            const jawabans = perts.map(p => {
-                const j = getJawaban(level.id, p.id);
-                return {
-                    pertanyaan_id: p.id,
-                    memenuhi: j.memenuhi,
-                    bukti_links: j.bukti_links || [],
-                };
-            });
-            // Save jawaban
-            await saveJawabanApi(level.id, jawabans);
-            // Submit final
+            await saveJawabanApi(level.id, buildJawabans(level.id));
             await submitFinalLevelApi(level.id);
-            showToast(`Level ${level.nama || level.name} berhasil dikunci!`);
+            showToast(`Level ${level.nama || level.name} berhasil disubmit & dikunci!`);
+            setEditingLevels(prev => ({ ...prev, [level.id]: false }));
             fetchLevels();
             setOpenLevel(null);
         } catch (err) {
-            showToast(err?.response?.data?.message || "Gagal menyimpan jawaban", "error");
+            showToast(err?.response?.data?.message || "Gagal submit level", "error");
         } finally {
             setSubmitting(false);
         }
@@ -228,9 +284,13 @@ export default function SekolahAssessment() {
 
                 {/* LEVEL LIST */}
                 {levels.map((level, idx) => {
-                    const isSubmitted = level.status === "submitted" || level.status === "verified" || level.status === "final";
                     const isLocked = level.status === "locked";
+                    const isFinalOrVerified = level.status === "final" || level.status === "verified";
+                    const isSubmitted = level.status === "submitted" || isFinalOrVerified;
+
                     const isOpen = openLevel === level.id;
+                    const editing = isEditing(level.id);
+                    const isReadOnly = isFinalOrVerified && !editing;
                     const complete = isTierComplete(level.id);
                     const perts = pertanyaan[level.id] || [];
 
@@ -238,24 +298,62 @@ export default function SekolahAssessment() {
                         <div key={level.id} style={{ ...tierCard, opacity: isLocked ? 0.5 : 1, marginBottom: "16px" }}>
                             {/* HEADER */}
                             <div
-                                onClick={() => handleOpenLevel(level)}
+                                onClick={() => !isLocked && handleOpenLevel(level)}
                                 style={{ ...tierHeader, cursor: isLocked ? "not-allowed" : "pointer" }}
                             >
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                     {isLocked && <Lock size={16} color="var(--text-muted)" />}
-                                    <div style={{ background: isSubmitted ? "#DCFCE7" : "#EEF2FF", color: isSubmitted ? "#16A34A" : "#4338CA", padding: "5px 12px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>
+                                    <div style={{ background: isSubmitted ? (isFinalOrVerified ? "#DCFCE7" : "#DBEAFE") : "#EEF2FF", color: isSubmitted ? (isFinalOrVerified ? "#16A34A" : "#1D4ED8") : "#4338CA", padding: "5px 12px", borderRadius: 999, fontWeight: 700, fontSize: 12 }}>
                                         {idx + 1}. {level.nama || level.name}
                                     </div>
-                                    {isSubmitted && <span style={{ color: "#1D9E75", fontSize: 12, fontWeight: 600 }}>✓ Terkunci</span>}
+                                    {level.status === "submitted" && <span style={{ color: "#1D4ED8", fontSize: 12, fontWeight: 600 }}>✓ Draft Tersimpan (Bisa Edit)</span>}
+                                    {isFinalOrVerified && !editing && <span style={{ color: "#16A34A", fontSize: 12, fontWeight: 600 }}>🔒 Terkunci (Selesai)</span>}
+                                    {editing && <span style={{ color: "#D97706", fontSize: 12, fontWeight: 600 }}>✏️ Mode Revisi</span>}
                                 </div>
-                                <div style={{ color: "var(--text-muted)" }}>
-                                    {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    {/* Tombol Revisi hanya untuk level yang sudah DIKUNCI (final/verified) */}
+                                    {isFinalOrVerified && !editing && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleStartEdit(level.id); }}
+                                            style={{
+                                                display: "flex", alignItems: "center", gap: 5,
+                                                background: "#FEF3C7", color: "#D97706",
+                                                border: "1px solid #FCD34D", borderRadius: 10,
+                                                padding: "5px 12px", fontSize: 12, fontWeight: 600,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <Pencil size={13} /> Revisi
+                                        </button>
+                                    )}
+                                    {editing && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleCancelEdit(level.id); setOpenLevel(null); }}
+                                            style={{
+                                                display: "flex", alignItems: "center", gap: 5,
+                                                background: "#FEE2E2", color: "#DC2626",
+                                                border: "1px solid #FECACA", borderRadius: 10,
+                                                padding: "5px 12px", fontSize: 12, fontWeight: 600,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            Batal Edit
+                                        </button>
+                                    )}
+                                    <div style={{ color: "var(--text-muted)" }}>
+                                        {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* QUESTIONS */}
                             {isOpen && !isLocked && (
                                 <div style={{ padding: "0 8px 8px" }}>
+                                    {isReadOnly && perts.length > 0 && (
+                                        <div style={{ padding: "12px 22px", background: "#F0FDF4", borderBottom: "1px solid var(--border)", fontSize: 13, color: "#15803D", display: "flex", alignItems: "center", gap: 8 }}>
+                                            <CheckCircle size={14} /> Jawaban sudah disubmit. Klik tombol <strong>Revisi</strong> untuk mengubah.
+                                        </div>
+                                    )}
                                     {loadingPert && perts.length === 0 && (
                                         <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)" }}>Memuat pertanyaan...</div>
                                     )}
@@ -272,25 +370,25 @@ export default function SekolahAssessment() {
                                                 {/* TOMBOL YA/TIDAK */}
                                                 <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
                                                     <button
-                                                        onClick={() => !isSubmitted && setMemenuhi(level.id, q.id, true)}
+                                                        onClick={() => !isReadOnly && setMemenuhi(level.id, q.id, true)}
                                                         style={toggleBtn(j.memenuhi === true, "#1D9E75", "#E1F5EE")}
-                                                        disabled={isSubmitted}
+                                                        disabled={isReadOnly}
                                                     >
                                                         ✓ Memenuhi
                                                     </button>
                                                     <button
-                                                        onClick={() => !isSubmitted && setMemenuhi(level.id, q.id, false)}
+                                                        onClick={() => !isReadOnly && setMemenuhi(level.id, q.id, false)}
                                                         style={toggleBtn(j.memenuhi === false, "#E24B4A", "#FCEBEB")}
-                                                        disabled={isSubmitted}
+                                                        disabled={isReadOnly}
                                                     >
                                                         ✕ Belum
                                                     </button>
                                                 </div>
 
-                                                {/* BUKTI */}
-                                                {!isSubmitted && (
+                                                {/* BUKTI - opsional, tampil saat tidak readonly */}
+                                                {!isReadOnly && (
                                                     <div style={evidenceBox}>
-                                                        <div style={evidenceTitle}>Bukti Dukung</div>
+                                                        <div style={evidenceTitle}>Bukti Dukung <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(opsional)</span></div>
 
                                                         {/* Links yang sudah ditambahkan */}
                                                         {j.bukti_links.map((l, li) => (
@@ -312,7 +410,7 @@ export default function SekolahAssessment() {
                                                         <div style={{ display: "flex", gap: 8 }}>
                                                             <input
                                                                 type="url"
-                                                                placeholder="Tambah link bukti..."
+                                                                placeholder="Tambah link bukti... (opsional)"
                                                                 value={linkInput[key] || ""}
                                                                 onChange={(e) => setLinkInput(prev => ({ ...prev, [key]: e.target.value }))}
                                                                 style={{ flex: 1, borderRadius: 10, border: "1px solid #e5e7eb", padding: "8px 12px", fontSize: 13, outline: "none" }}
@@ -323,27 +421,62 @@ export default function SekolahAssessment() {
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Tampilkan bukti yang ada saat readonly */}
+                                                {isReadOnly && j.bukti_links.length > 0 && (
+                                                    <div style={{ ...evidenceBox, background: "#F9FAFB" }}>
+                                                        <div style={evidenceTitle}>Bukti Dukung</div>
+                                                        {j.bukti_links.map((l, li) => (
+                                                            <div key={li} style={fileItem}>
+                                                                <a href={l} target="_blank" rel="noreferrer" style={{ color: "#185FA5", fontSize: 13 }}>{l}</a>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
 
-                                    {/* SUBMIT BUTTON */}
-                                    {!isSubmitted && perts.length > 0 && (
-                                        <div style={{ padding: "16px 0 8px", textAlign: "center" }}>
+                                    {/* TOMBOL AKSI */}
+                                    {!isReadOnly && perts.length > 0 && (
+                                        <div style={{ padding: "16px 0 8px", display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                                            {/* Simpan Jawaban (tanpa kunci - tidak perlu bukti) */}
+                                            <button
+                                                onClick={() => handleSaveLevel(level)}
+                                                disabled={saving || submitting || !complete}
+                                                style={{
+                                                    background: complete ? "#EAF2FD" : "#e5e7eb",
+                                                    color: complete ? "#185FA5" : "#9ca3af",
+                                                    border: `2px solid ${complete ? "#185FA5" : "#e5e7eb"}`,
+                                                    borderRadius: 14, padding: "12px 24px",
+                                                    fontWeight: 700, fontSize: 14,
+                                                    cursor: complete && !saving && !submitting ? "pointer" : "not-allowed",
+                                                    opacity: saving ? 0.7 : 1,
+                                                    transition: "0.3s",
+                                                }}
+                                            >
+                                                {saving ? "Menyimpan..." : "💾 Simpan Jawaban"}
+                                            </button>
+                                            {/* Submit & Kunci (memerlukan validasi backend) */}
                                             <button
                                                 onClick={() => handleSubmitLevel(level)}
-                                                disabled={submitting || !complete}
+                                                disabled={submitting || saving || !complete}
                                                 style={{
                                                     background: complete ? "linear-gradient(135deg,#1D9E75,#185FA5)" : "#e5e7eb",
                                                     color: complete ? "white" : "#9ca3af",
-                                                    border: "none", borderRadius: 14, padding: "13px 32px",
-                                                    fontWeight: 700, fontSize: 15,
-                                                    cursor: complete && !submitting ? "pointer" : "not-allowed",
+                                                    border: "none", borderRadius: 14, padding: "12px 24px",
+                                                    fontWeight: 700, fontSize: 14,
+                                                    cursor: complete && !submitting && !saving ? "pointer" : "not-allowed",
                                                     opacity: submitting ? 0.7 : 1,
                                                     transition: "0.3s",
                                                 }}
                                             >
-                                                {submitting ? "Menyimpan..." : complete ? `Kunci & Submit Level ${level.nama || level.name}` : "Jawab Semua Pertanyaan Terlebih Dahulu"}
+                                                {submitting
+                                                    ? "Mengunci..."
+                                                    : editing
+                                                        ? `🔒 Simpan & Kunci Level ${level.nama || level.name}`
+                                                        : `🔒 Submit & Kunci Level ${level.nama || level.name}`
+                                                }
                                             </button>
                                         </div>
                                     )}

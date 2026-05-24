@@ -21,8 +21,8 @@ export default function Navbar({ toggleSidebar }) {
           <Bell size={20} className="text-muted" />
         </button>
         <div className="flex items-center gap-2">
-          <div style={{ textAlign: "right", display: "none" }} className="md:block">
-            <div className="text-sm font-bold">{user?.username || "Guest"}</div>
+          <div style={{ textAlign: "right" }}>
+            <div className="text-sm font-bold">{user?.name || user?.username || "Guest"}</div>
             <div className="text-sm text-muted" style={{ fontSize: "0.7rem", textTransform: "uppercase" }}>{user?.role || "Unknown"}</div>
           </div>
           <UserCircle size={32} className="text-primary" />

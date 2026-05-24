@@ -21,6 +21,9 @@ export const verifikasiSekolahApi = (sekolahId, levelId, data) =>
     .post(`/admin/verifikasi/${sekolahId}/level/${levelId}`, data)
     .then((r) => r.data);
 
+export const getSekolahAssessmentDetailApi = (sekolahId) =>
+  axiosInstance.get(`/admin/verifikasi/sekolah/${sekolahId}`).then((r) => r.data);
+
 // Laporan
 export const getRekapSekolahApi = (params) =>
   axiosInstance

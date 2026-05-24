@@ -14,23 +14,40 @@ use Illuminate\Support\Facades\DB;
 
 class VerificationController extends Controller
 {
+    protected $service;
+
+    public function __construct(\App\Services\AssessmentService $service)
+    {
+        $this->service = $service;
+    }
+
     /**
      * List schools with levels awaiting verification.
      */
     public function index()
     {
         $opdId = auth()->user()->opd_id;
-        
+        $period = $this->service->getActivePeriod();
+        $periodId = $period ? $period->id : null;
+
         $sekolahs = Sekolah::where('opd_id', $opdId)
-            ->whereHas('levelSubmissions', function($q) {
-                $q->where('status', 'final');
-            })->with(['opd', 'levelSubmissions' => function($q) {
-                $q->where('status', 'final')->with('level');
+            ->whereHas('levelSubmissions', function($q) use ($periodId) {
+                $q->whereIn('status', ['submitted', 'final'])->where('period_id', $periodId);
+            })->with(['opd', 'levelSubmissions' => function($q) use ($periodId) {
+                $q->whereIn('status', ['submitted', 'final', 'verified'])->where('period_id', $periodId)->with('level');
             }])->get();
+
+        $data = $sekolahs->map(function ($s) use ($periodId) {
+            $stats = $this->service->getSchoolStats($s->id, $periodId);
+            $s->progress = $stats['progress'];
+            $s->status = $s->levelSubmissions->contains('status', 'final') ? 'Menunggu Verifikasi' : 'Proses';
+            if ($s->levelSubmissions->every('status', 'verified')) $s->status = 'Terverifikasi';
+            return $s;
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $sekolahs
+            'data' => $data
         ]);
     }
 
@@ -86,6 +103,65 @@ class VerificationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Verifikasi berhasil disimpan.'
+        ]);
+    }
+
+    /**
+     * Get full assessment details for a school (all levels, questions, answers).
+     */
+    public function showDetails($sekolahId)
+    {
+        $sekolah = Sekolah::with('opd')->findOrFail($sekolahId);
+        $period = $this->service->getActivePeriod();
+        $periodId = $period ? $period->id : null;
+
+        $levels = Level::where('period_id', $periodId)->orderBy('urutan')->get();
+        
+        $details = $levels->map(function ($level) use ($sekolahId, $periodId) {
+            $questions = $level->pertanyaans()
+                ->with(['jawabans' => function($q) use ($sekolahId, $periodId) {
+                    $q->where('sekolah_id', $sekolahId)->where('period_id', $periodId);
+                }])
+                ->orderBy('urutan')
+                ->get()
+                ->map(function($p) {
+                    $j = $p->jawabans->first();
+                    $links = [];
+                    if ($j && $j->file_path) {
+                        try {
+                            $parsed = json_decode($j->file_path, true);
+                            $links = is_array($parsed) ? $parsed : [$j->file_path];
+                        } catch(\Exception $e) { $links = [$j->file_path]; }
+                    }
+                    return [
+                        'id' => $p->id,
+                        'pertanyaan' => $p->pertanyaan,
+                        'jawaban' => $j ? ($j->jawaban_teks === 'ya' ? 'Memenuhi' : 'Belum Memenuhi') : 'Belum Dijawab',
+                        'nilai' => $j ? $j->nilai : 0,
+                        'bukti_links' => $links,
+                    ];
+                });
+
+            $submission = LevelSubmission::where('sekolah_id', $sekolahId)
+                ->where('level_id', $level->id)
+                ->where('period_id', $periodId)
+                ->first();
+
+            return [
+                'level_id' => $level->id,
+                'level_nama' => $level->nama,
+                'status' => $submission ? $submission->status : 'Belum Mulai',
+                'questions' => $questions
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'sekolah' => $sekolah,
+                'details' => $details,
+                'stats' => $this->service->getSchoolStats($sekolahId, $periodId)
+            ]
         ]);
     }
 }

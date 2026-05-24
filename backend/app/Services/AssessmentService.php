@@ -26,19 +26,27 @@ class AssessmentService
             ->where('period_id', $periodId)
             ->first();
 
-        if ($submission && ($submission->status === 'final' || $submission->status === 'verified')) {
-            return $submission->status;
+        // verified = terkunci permanen oleh admin
+        if ($submission && $submission->status === 'verified') {
+            return 'verified';
         }
 
+        // final = dikunci oleh sekolah (tapi masih bisa di-edit via store())
+        if ($submission && $submission->status === 'final') {
+            return 'final';
+        }
+
+        // submitted = sudah disimpan, masih bisa direvisi
         if ($submission && $submission->status === 'submitted') {
             return 'submitted';
         }
 
-        // Check if unlocked
+        // Level pertama selalu unlocked
         if ($level->urutan === 1) {
             return $submission ? 'draft' : 'unlocked';
         }
 
+        // Cek apakah level sebelumnya sudah disubmit
         $prevLevel = Level::where('period_id', $level->period_id)
             ->where('urutan', $level->urutan - 1)
             ->first();
@@ -50,7 +58,8 @@ class AssessmentService
             ->where('period_id', $periodId)
             ->first();
 
-        if ($prevSubmission && ($prevSubmission->status === 'final' || $prevSubmission->status === 'verified')) {
+        // Level berikutnya terbuka jika level sebelumnya sudah submitted, final, atau verified
+        if ($prevSubmission && in_array($prevSubmission->status, ['submitted', 'final', 'verified'])) {
             return $submission ? 'draft' : 'unlocked';
         }
 
