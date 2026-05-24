@@ -15,7 +15,9 @@ class LevelController extends Controller
      */
     public function index()
     {
-        $levels = Level::withCount('pertanyaans')->orderBy('urutan')->get();
+        $levels = Level::with(['pertanyaans' => function($q) {
+            $q->orderBy('urutan');
+        }])->withCount('pertanyaans')->orderBy('urutan')->get();
 
         return response()->json([
             'success' => true,
@@ -32,6 +34,11 @@ class LevelController extends Controller
         // Only superadmin can create (based on user request description for management)
         if (auth()->user()->role !== 'superadmin') {
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $activePeriod = \App\Models\AssessmentPeriod::where('is_active', true)->first();
+        if ($activePeriod) {
+            $request->merge(['period_id' => $activePeriod->id]);
         }
 
         $request->validate([

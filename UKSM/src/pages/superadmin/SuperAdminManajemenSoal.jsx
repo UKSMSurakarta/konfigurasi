@@ -1,0 +1,799 @@
+import { useState, useEffect } from "react";
+import {
+  ClipboardList,
+  CheckCircle2,
+  Clock3,
+  AlertTriangle,
+  Search,
+  Filter,
+  Eye,
+  Plus,
+  Trash2,
+  Save,
+  Pencil,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { getSuperadminMonitoringApi } from "../../api/superadmin";
+import { useNavigate } from "react-router-dom";
+import {
+  getAdminLevelsApi,
+  createPertanyaanApi,
+  updatePertanyaanApi,
+  deletePertanyaanApi,
+  createAdminLevelApi,
+  updateAdminLevelApi,
+  deleteAdminLevelApi,
+} from "../../api/admin";
+
+/* ─────────────────────────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────────────────────────── */
+const LEVEL_COLORS = [
+  { color: "#2563EB", bg: "#DBEAFE" },
+  { color: "#D97706", bg: "#FEF3C7" },
+  { color: "#16A34A", bg: "#DCFCE7" },
+  { color: "#9333EA", bg: "#F3E8FF" },
+  { color: "#0891B2", bg: "#CFFAFE" },
+  { color: "#E11D48", bg: "#FFE4E6" },
+];
+
+const STATUS_CFG = {
+  Terverifikasi: {
+    bg: "#DCFCE7",
+    text: "#15803D",
+    icon: <CheckCircle2 size={14} />,
+  },
+  Selesai: { bg: "#DCFCE7", text: "#15803D", icon: <CheckCircle2 size={14} /> },
+  "Menunggu Verifikasi": {
+    bg: "#FEF3C7",
+    text: "#B45309",
+    icon: <Clock3 size={14} />,
+  },
+  Proses: { bg: "#DBEAFE", text: "#1D4ED8", icon: <Clock3 size={14} /> },
+  "Belum Selesai": {
+    bg: "#FEE2E2",
+    text: "#DC2626",
+    icon: <AlertTriangle size={14} />,
+  },
+};
+
+function getLevelColor(urutan = 1) {
+  return LEVEL_COLORS[(Math.max(1, urutan) - 1) % LEVEL_COLORS.length];
+}
+function getStatusCfg(st) {
+  return STATUS_CFG[st] ?? { bg: "#F3F4F6", text: "#6B7280", icon: null };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   COMPONENT
+───────────────────────────────────────────────────────────── */
+export default function SuperAdminManajemenSoal() {
+  const navigate = useNavigate();
+
+  /* ── Levels / Questionnaire state ─────────────────────── */
+  const [levels, setLevels] = useState([]);
+  const [loadingLevels, setLoadingLevels] = useState(true);
+  const [openLevel, setOpenLevel] = useState({});
+  const [editDraft, setEditDraft] = useState({}); // { [pertanyaanId]: draftText }
+  const [newQuestion, setNewQuestion] = useState({}); // { [levelId]: text }
+  const [savingId, setSavingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [addingId, setAddingId] = useState(null);
+
+  const [showLevelModal, setShowLevelModal] = useState(false);
+  const [levelForm, setLevelForm] = useState({ id: null, nama: "", urutan: "", deskripsi: "", period_id: 1 });
+  const [savingLevel, setSavingLevel] = useState(false);
+
+  /* ── Fetch levels + pertanyaans ───────────────────────── */
+  useEffect(() => {
+    setLoadingLevels(true);
+    getAdminLevelsApi()
+      .then((res) => {
+        const raw = res?.data ?? res ?? [];
+        const arr = Array.isArray(raw) ? raw : [];
+        setLevels(arr);
+
+        // seed editDraft from existing pertanyaans
+        const drafts = {};
+        arr.forEach((lv) =>
+          (lv.pertanyaans || []).forEach((p) => {
+            drafts[p.id] = p.teks_pertanyaan ?? "";
+          }),
+        );
+        setEditDraft(drafts);
+
+        // auto-open first level
+        if (arr.length > 0) setOpenLevel({ [arr[0].id]: true });
+      })
+      .catch(console.error)
+      .finally(() => setLoadingLevels(false));
+  }, []);
+
+  /* ── Action: toggle accordion ─────────────────────────── */
+  function toggleLevel(id) {
+    setOpenLevel((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  /* ── Action: save edited question ────────────────────── */
+  async function handleSave(pertanyaanId) {
+    const text = (editDraft[pertanyaanId] ?? "").trim();
+    if (!text) return;
+    setSavingId(pertanyaanId);
+    try {
+      await updatePertanyaanApi(pertanyaanId, { teks_pertanyaan: text });
+      setLevels((prev) =>
+        prev.map((lv) => ({
+          ...lv,
+          pertanyaans: (lv.pertanyaans || []).map((p) =>
+            p.id === pertanyaanId ? { ...p, teks_pertanyaan: text } : p,
+          ),
+        })),
+      );
+    } catch (err) {
+      alert(
+        "Gagal menyimpan: " + (err?.response?.data?.message ?? err.message),
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  /* ── Action: delete question ──────────────────────────── */
+  async function handleDelete(levelId, pertanyaanId) {
+    if (!window.confirm("Yakin ingin menghapus pertanyaan ini?")) return;
+    setDeletingId(pertanyaanId);
+    try {
+      await deletePertanyaanApi(pertanyaanId);
+      setLevels((prev) =>
+        prev.map((lv) =>
+          lv.id === levelId
+            ? {
+              ...lv,
+              pertanyaans: (lv.pertanyaans || []).filter(
+                (p) => p.id !== pertanyaanId,
+              ),
+            }
+            : lv,
+        ),
+      );
+      setEditDraft((prev) => {
+        const next = { ...prev };
+        delete next[pertanyaanId];
+        return next;
+      });
+    } catch (err) {
+      alert(
+        "Gagal menghapus: " + (err?.response?.data?.message ?? err.message),
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  /* ── Action: save level ─────────────────────────────── */
+  async function handleSaveLevel(e) {
+    e.preventDefault();
+    setSavingLevel(true);
+    try {
+      if (levelForm.id) {
+        await updateAdminLevelApi(levelForm.id, levelForm);
+      } else {
+        await createAdminLevelApi(levelForm);
+      }
+      setShowLevelModal(false);
+      // reload levels
+      const res = await getAdminLevelsApi();
+      setLevels(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      alert("Gagal menyimpan level: " + (err?.response?.data?.message ?? err.message));
+    } finally {
+      setSavingLevel(false);
+    }
+  }
+
+  /* ── Action: delete level ───────────────────────────── */
+  async function handleDeleteLevel(e, id) {
+    e.stopPropagation();
+    if (!window.confirm("Yakin ingin menghapus level ini? Pastikan tidak ada sekolah yang sudah mengisi di level ini.")) return;
+    try {
+      await deleteAdminLevelApi(id);
+      // reload levels
+      const res = await getAdminLevelsApi();
+      setLevels(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      alert("Gagal menghapus level: " + (err?.response?.data?.message ?? err.message));
+    }
+  }
+
+  /* ── Action: add new question ─────────────────────────── */
+  async function handleAdd(levelId) {
+    const text = (newQuestion[levelId] ?? "").trim();
+    if (!text) return;
+    setAddingId(levelId);
+    try {
+      const targetLevel = levels.find((l) => l.id === levelId);
+      const nextUrutan = (targetLevel?.pertanyaans?.length ?? 0) + 1;
+
+      const res = await createPertanyaanApi(levelId, {
+        teks_pertanyaan: text,
+        tipe_jawaban: "ya_tidak",
+        bobot: 1,
+        urutan: nextUrutan,
+      });
+      const newP = res?.data ?? res;
+      setLevels((prev) =>
+        prev.map((lv) =>
+          lv.id === levelId
+            ? { ...lv, pertanyaans: [...(lv.pertanyaans || []), newP] }
+            : lv,
+        ),
+      );
+      setEditDraft((prev) => ({
+        ...prev,
+        [newP.id]: newP.teks_pertanyaan ?? "",
+      }));
+      setNewQuestion((prev) => ({ ...prev, [levelId]: "" }));
+    } catch (err) {
+      alert(
+        "Gagal menambah pertanyaan: " +
+        (err?.response?.data?.message ?? err.message),
+      );
+    } finally {
+      setAddingId(null);
+    }
+  }
+
+  const totalPertanyaan = levels.reduce(
+    (acc, lv) => acc + (lv.pertanyaans?.length ?? 0),
+    0,
+  );
+
+  /* ── Render ───────────────────────────────────────────── */
+  return (
+    <div style={{ width: "100%" }}>
+      {/* ═══════════════════ HEADER ═══════════════════ */}
+      <div
+        className="flex items-start justify-between mb-6"
+        style={{ gap: "16px", flexWrap: "wrap" }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: "clamp(22px,4vw,32px)",
+              fontWeight: 800,
+              marginBottom: "8px",
+            }}
+          >
+            Manajemen Soal & Kuisioner
+          </h1>
+          <p
+            className="text-muted"
+            style={{ fontSize: "14px", lineHeight: 1.7 }}
+          >
+            Pantau dan kelola assessment UKS seluruh sekolah serta manajemen
+            kuisioner UKS.
+          </p>
+        </div>
+      </div>
+
+      {/* ═══════════════════ MANAJEMEN KUISIONER ═══════════════════ */}
+      <div
+        className="card glass-panel"
+        style={{ padding: "28px", borderRadius: "28px" }}
+      >
+        {/* SECTION HEADER */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "28px",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2
+              style={{ fontSize: "24px", fontWeight: 800, marginBottom: "8px" }}
+            >
+              Manajemen Kuisioner
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+              Tambah, edit, dan hapus pertanyaan untuk setiap level UKS.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => {
+                setLevelForm({ id: null, nama: "", urutan: levels.length + 1, deskripsi: "", period_id: 1 });
+                setShowLevelModal(true);
+              }}
+              style={{
+                background: "var(--card-bg)",
+                color: "var(--text-main)",
+                border: "1px solid var(--border)",
+                padding: "10px 16px",
+                borderRadius: "14px",
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer"
+              }}
+            >
+              <Plus size={16} /> Tambah Level
+            </button>
+            <div
+              style={{
+                background:
+                  "linear-gradient(135deg,var(--primary),var(--secondary))",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "14px",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <ClipboardList size={18} />
+              {loadingLevels ? "…" : totalPertanyaan} Pertanyaan
+            </div>
+          </div>
+        </div>
+
+        {/* LOADING */}
+        {loadingLevels ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "52px 0",
+              color: "var(--text-muted)",
+            }}
+          >
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                border: "3px solid #e5e7eb",
+                borderTop: "3px solid var(--primary)",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+                margin: "0 auto 14px",
+              }}
+            />
+            <p style={{ fontSize: "14px" }}>Memuat data kuisioner…</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : levels.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "52px 0",
+              color: "var(--text-muted)",
+            }}
+          >
+            <ClipboardList
+              size={40}
+              style={{ margin: "0 auto 12px", opacity: 0.35 }}
+            />
+            <p style={{ fontSize: "14px" }}>Belum ada level tersedia.</p>
+          </div>
+        ) : (
+          /* ACCORDION LIST */
+          levels.map((lv) => {
+            const palette = getLevelColor(lv.urutan ?? 1);
+            const isOpen = !!openLevel[lv.id];
+            const pertanyaans = lv.pertanyaans ?? [];
+
+            return (
+              <div
+                key={lv.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "22px",
+                  overflow: "hidden",
+                  marginBottom: "20px",
+                }}
+              >
+                {/* ── ACCORDION HEADER ── */}
+                <div
+                  onClick={() => toggleLevel(lv.id)}
+                  style={{
+                    padding: "18px 22px",
+                    background: "var(--bg-light)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: palette.bg,
+                        color: palette.color,
+                        padding: "6px 16px",
+                        borderRadius: "999px",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {lv.nama}
+                    </span>
+                    {lv.kode && (
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-muted)",
+                          background: "var(--border)",
+                          padding: "3px 10px",
+                          borderRadius: "999px",
+                        }}
+                      >
+                        {lv.kode}
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {pertanyaans.length} Pertanyaan
+                    </span>
+                  </div>
+                  <div style={{ color: "var(--text-muted)", flexShrink: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)" }} onClick={(e) => { e.stopPropagation(); setLevelForm({ id: lv.id, nama: lv.nama, urutan: lv.urutan, deskripsi: lv.deskripsi || "", period_id: lv.period_id || 1 }); setShowLevelModal(true); }}><Pencil size={15} /></button>
+                    <button style={{ background: "none", border: "none", cursor: "pointer", color: "#DC2626" }} onClick={(e) => handleDeleteLevel(e, lv.id)}><Trash2 size={15} /></button>
+                    {isOpen ? (
+                      <ChevronUp size={18} />
+                    ) : (
+                      <ChevronDown size={18} />
+                    )}
+                  </div>
+                </div>
+
+                {/* ── ACCORDION BODY ── */}
+                {isOpen && (
+                  <div style={{ padding: "24px" }}>
+                    {/* DESCRIPTION */}
+                    {lv.deskripsi && (
+                      <p
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          marginBottom: "20px",
+                          paddingLeft: "4px",
+                        }}
+                      >
+                        {lv.deskripsi}
+                      </p>
+                    )}
+
+                    {/* PERTANYAAN LIST */}
+                    {pertanyaans.length === 0 && (
+                      <p
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          marginBottom: "16px",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Belum ada pertanyaan untuk level ini.
+                      </p>
+                    )}
+
+                    {pertanyaans.map((p, idx) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          background: "#FAFAFA",
+                          border: "1px solid #EBEBEB",
+                          borderRadius: "18px",
+                          padding: "18px",
+                          marginBottom: "14px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "16px",
+                            flexWrap: "wrap",
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          {/* TEXTAREA SIDE */}
+                          <div style={{ flex: 1, minWidth: "220px" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginBottom: "10px",
+                              }}
+                            >
+                              <Pencil
+                                size={13}
+                                style={{ color: palette.color }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: "13px",
+                                  fontWeight: 700,
+                                  color: palette.color,
+                                }}
+                              >
+                                Pertanyaan {idx + 1}
+                              </span>
+                            </div>
+                            <textarea
+                              value={editDraft[p.id] ?? p.teks_pertanyaan ?? ""}
+                              onChange={(e) =>
+                                setEditDraft((prev) => ({
+                                  ...prev,
+                                  [p.id]: e.target.value,
+                                }))
+                              }
+                              rows={3}
+                              style={{
+                                width: "100%",
+                                minHeight: "86px",
+                                borderRadius: "14px",
+                                border: "1px solid #ddd",
+                                padding: "12px 14px",
+                                outline: "none",
+                                resize: "vertical",
+                                fontSize: "14px",
+                                lineHeight: 1.6,
+                                boxSizing: "border-box",
+                                fontFamily: "inherit",
+                                background: "white",
+                              }}
+                            />
+                          </div>
+
+                          {/* ACTION BUTTONS */}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "8px",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <button
+                              onClick={() => handleSave(p.id)}
+                              disabled={savingId === p.id}
+                              title="Simpan perubahan"
+                              style={{
+                                width: "42px",
+                                height: "42px",
+                                border: "none",
+                                borderRadius: "12px",
+                                background: "#DBEAFE",
+                                color: "#2563EB",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: savingId === p.id ? "wait" : "pointer",
+                                opacity: savingId === p.id ? 0.55 : 1,
+                                transition: "opacity 0.2s",
+                              }}
+                            >
+                              <Save size={17} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(lv.id, p.id)}
+                              disabled={deletingId === p.id}
+                              title="Hapus pertanyaan"
+                              style={{
+                                width: "42px",
+                                height: "42px",
+                                border: "none",
+                                borderRadius: "12px",
+                                background: "#FEE2E2",
+                                color: "#DC2626",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor:
+                                  deletingId === p.id ? "wait" : "pointer",
+                                opacity: deletingId === p.id ? 0.55 : 1,
+                                transition: "opacity 0.2s",
+                              }}
+                            >
+                              <Trash2 size={17} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* ADD NEW QUESTION */}
+                    <div
+                      style={{
+                        marginTop: "18px",
+                        border: "2px dashed #D1D5DB",
+                        borderRadius: "18px",
+                        padding: "20px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "14px",
+                          marginBottom: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <Plus size={16} style={{ color: palette.color }} />
+                        Tambah Pertanyaan Baru
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          type="text"
+                          value={newQuestion[lv.id] ?? ""}
+                          onChange={(e) =>
+                            setNewQuestion((prev) => ({
+                              ...prev,
+                              [lv.id]: e.target.value,
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAdd(lv.id);
+                          }}
+                          placeholder="Masukkan pertanyaan baru…"
+                          style={{
+                            flex: 1,
+                            minWidth: "240px",
+                            height: "50px",
+                            borderRadius: "14px",
+                            border: "1px solid #D1D5DB",
+                            padding: "0 16px",
+                            outline: "none",
+                            fontSize: "14px",
+                            fontFamily: "inherit",
+                            background: "white",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                        <button
+                          onClick={() => handleAdd(lv.id)}
+                          disabled={addingId === lv.id}
+                          style={{
+                            height: "50px",
+                            padding: "0 24px",
+                            border: "none",
+                            borderRadius: "14px",
+                            background: palette.color,
+                            color: "white",
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            cursor: addingId === lv.id ? "wait" : "pointer",
+                            opacity: addingId === lv.id ? 0.7 : 1,
+                            whiteSpace: "nowrap",
+                            transition: "opacity 0.2s",
+                            fontSize: "14px",
+                          }}
+                        >
+                          <Plus size={17} />
+                          {addingId === lv.id ? "Menyimpan…" : "Tambah"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* MODAL LEVEL */}
+      {showLevelModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: "var(--card-bg)", padding: "24px", borderRadius: "16px", width: "100%", maxWidth: "420px", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
+            <h3 style={{ marginTop: 0, marginBottom: "16px", fontSize: "18px", fontWeight: 700 }}>{levelForm.id ? "Edit Level" : "Tambah Level"}</h3>
+            <form onSubmit={handleSaveLevel}>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 600 }}>Nama Level</label>
+                <input type="text" value={levelForm.nama} onChange={(e) => setLevelForm({ ...levelForm, nama: e.target.value })} style={inp("44px", "14px")} required />
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 600 }}>Urutan / Tingkat</label>
+                <input type="number" min="1" value={levelForm.urutan} onChange={(e) => setLevelForm({ ...levelForm, urutan: parseInt(e.target.value) || 1 })} style={inp("44px", "14px")} required />
+              </div>
+              <div style={{ marginBottom: "22px" }}>
+                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: 600 }}>Deskripsi</label>
+                <textarea value={levelForm.deskripsi} onChange={(e) => setLevelForm({ ...levelForm, deskripsi: e.target.value })} style={{ width: "100%", minHeight: "80px", borderRadius: "14px", border: "1px solid var(--border)", padding: "12px 14px", outline: "none", fontSize: "14px", fontFamily: "inherit" }} />
+              </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button type="button" onClick={() => setShowLevelModal(false)} style={{ flex: 1, padding: "12px 16px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--bg-light)", color: "var(--text-main)", cursor: "pointer", fontWeight: 600 }}>Batal</button>
+                <button type="submit" disabled={savingLevel} style={{ flex: 1, padding: "12px 16px", borderRadius: "12px", border: "none", background: "var(--primary)", color: "white", cursor: savingLevel ? "wait" : "pointer", fontWeight: 600 }}>{savingLevel ? "Menyimpan..." : "Simpan"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HELPER COMPONENTS
+───────────────────────────────────────────────────────────── */
+function SkeletonTable({ cols = 5 }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <style>{`
+        @keyframes shimmer {
+          0%   { opacity: 1;   }
+          50%  { opacity: 0.38; }
+          100% { opacity: 1;   }
+        }
+      `}</style>
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", minWidth: "760px" }}
+      >
+        <tbody>
+          {[1, 2, 3, 4].map((r) => (
+            <tr key={r} style={{ borderBottom: "1px solid var(--border)" }}>
+              {Array.from({ length: cols }).map((_, c) => (
+                <td key={c} style={{ padding: "16px 18px" }}>
+                  <div
+                    style={{
+                      height: "14px",
+                      borderRadius: "7px",
+                      background: "var(--bg-light)",
+                      animation: "shimmer 1.4s ease-in-out infinite",
+                      animationDelay: `${c * 0.08}s`,
+                    }}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ── style helpers ── */
+const td = { padding: "16px 18px", fontSize: "14px", verticalAlign: "middle" };
+const inp = (h = "46px", pl = "16px") => ({
+  width: "100%",
+  height: h,
+  borderRadius: "14px",
+  border: "1px solid var(--border)",
+  background: "var(--bg-light)",
+  paddingLeft: pl,
+  paddingRight: "14px",
+  outline: "none",
+  fontSize: "14px",
+  color: "var(--text-main)",
+  boxSizing: "border-box",
+});

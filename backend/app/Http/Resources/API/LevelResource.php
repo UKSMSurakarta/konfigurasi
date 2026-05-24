@@ -17,6 +17,7 @@ class LevelResource extends JsonResource
             'period_id' => $this->period_id,
             'is_active' => $this->is_active,
             'pertanyaans_count' => $this->pertanyaans_count ?? $this->pertanyaans()->count(),
+            'pertanyaans' => \App\Http\Resources\API\PertanyaanResource::collection($this->whenLoaded('pertanyaans')),
             'created_at' => $this->created_at,
         ];
     }

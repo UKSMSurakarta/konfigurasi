@@ -42,7 +42,10 @@ export default function SekolahAssessment() {
 
     // Fetch pertanyaan per level (on demand)
     async function handleOpenLevel(level) {
-        if (level.status === "locked") return;
+        if (level.status === "locked") {
+            showToast("Selesaikan level sebelumnya terlebih dahulu untuk membuka level ini.", "error");
+            return;
+        }
         const id = level.id;
         setOpenLevel(prev => prev === id ? null : id);
         if (pertanyaan[id]) return; // already loaded
@@ -86,6 +89,13 @@ export default function SekolahAssessment() {
         const link = (linkInput[k] || "").trim();
         if (!link) return;
         if (!link.startsWith("http")) { showToast("Link harus diawali https://", "error"); return; }
+
+        // Batasi maksimal 1 bukti
+        if (getJawaban(levelId, pertId).bukti_links.length >= 1) {
+            showToast("Hanya diperbolehkan memasukkan 1 file bukti atau 1 link gdrive.", "error");
+            return;
+        }
+
         setJawaban(prev => ({
             ...prev,
             [k]: { ...getJawaban(levelId, pertId), bukti_links: [...getJawaban(levelId, pertId).bukti_links, link] },
@@ -102,10 +112,17 @@ export default function SekolahAssessment() {
     async function handleFileUpload(e, levelId, pertId) {
         const file = e.target.files[0];
         if (!file) return;
+
+        // Batasi file ke 1 item bukti saja
+        if (getJawaban(levelId, pertId).bukti_links.length >= 1) {
+            showToast("Hanya diperbolehkan memasukkan 1 file bukti atau 1 link gdrive.", "error");
+            return;
+        }
+
         if (!["image/jpeg", "image/png", "image/jpg", "application/pdf"].includes(file.type)) {
             showToast("Hanya JPG, PNG, atau PDF", "error"); return;
         }
-        if (file.size > 5 * 1024 * 1024) { showToast("Maksimal 5MB", "error"); return; }
+        if (file.size > 1 * 1024 * 1024) { showToast("File Max 1MB", "error"); return; }
 
         const formData = new FormData();
         formData.append("file", file);

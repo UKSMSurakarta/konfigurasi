@@ -13,6 +13,7 @@ import {
   Globe,
   CalendarDays,
   Image,
+  ClipboardList,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, closeSidebar }) {
@@ -39,7 +40,8 @@ export default function Sidebar({ isOpen, closeSidebar }) {
       { path: "/superadmin/manajemen", label: "Manajemen OPD", icon: <Globe size={20} /> },
       { path: "/superadmin/sekolah", label: "Manajemen Sekolah", icon: <Building2 size={20} /> },
       { path: "/superadmin/users", label: "Manajemen User", icon: <Users size={20} /> },
-      { path: "/superadmin/assessment", label: "Assessment", icon: <CheckSquare size={20} /> },
+      { path: "/superadmin/assessment", label: "Monitoring Assessment", icon: <CheckSquare size={20} /> },
+      { path: "/superadmin/manajemen-soal", label: "Manajemen Soal", icon: <ClipboardList size={20} /> },
       { path: "/superadmin/periode", label: "Periode Assessment", icon: <CalendarDays size={20} /> },
       { path: "/superadmin/laporan", label: "Laporan & Rekap", icon: <FileBarChart size={20} /> },
       { path: "/superadmin/konten", label: "Konten Website", icon: <FileText size={20} /> },

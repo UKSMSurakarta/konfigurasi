@@ -10,15 +10,20 @@ import {
   Plus,
   Trash2,
   Save,
+  Pencil,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import { getSuperadminMonitoringApi } from "../../api/superadmin";
+import { useNavigate } from "react-router-dom";
 import {
   getAdminLevelsApi,
   createPertanyaanApi,
   updatePertanyaanApi,
   deletePertanyaanApi,
+  createAdminLevelApi,
+  updateAdminLevelApi,
+  deleteAdminLevelApi,
 } from "../../api/admin";
 
 /* ─────────────────────────────────────────────────────────────
@@ -64,21 +69,13 @@ function getStatusCfg(st) {
    COMPONENT
 ───────────────────────────────────────────────────────────── */
 export default function SuperAdminAssessment() {
+  const navigate = useNavigate();
+
   /* ── Monitoring state ──────────────────────────────────── */
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
-  /* ── Levels / Questionnaire state ─────────────────────── */
-  const [levels, setLevels] = useState([]);
-  const [loadingLevels, setLoadingLevels] = useState(true);
-  const [openLevel, setOpenLevel] = useState({});
-  const [editDraft, setEditDraft] = useState({}); // { [pertanyaanId]: draftText }
-  const [newQuestion, setNewQuestion] = useState({}); // { [levelId]: text }
-  const [savingId, setSavingId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
-  const [addingId, setAddingId] = useState(null);
 
   /* ── Fetch monitoring ─────────────────────────────────── */
   useEffect(() => {
@@ -91,125 +88,6 @@ export default function SuperAdminAssessment() {
       .catch(console.error)
       .finally(() => setLoadingSchools(false));
   }, []);
-
-  /* ── Fetch levels + pertanyaans ───────────────────────── */
-  useEffect(() => {
-    setLoadingLevels(true);
-    getAdminLevelsApi()
-      .then((res) => {
-        const raw = res?.data ?? res ?? [];
-        const arr = Array.isArray(raw) ? raw : [];
-        setLevels(arr);
-
-        // seed editDraft from existing pertanyaans
-        const drafts = {};
-        arr.forEach((lv) =>
-          (lv.pertanyaans || []).forEach((p) => {
-            drafts[p.id] = p.teks_pertanyaan ?? "";
-          }),
-        );
-        setEditDraft(drafts);
-
-        // auto-open first level
-        if (arr.length > 0) setOpenLevel({ [arr[0].id]: true });
-      })
-      .catch(console.error)
-      .finally(() => setLoadingLevels(false));
-  }, []);
-
-  /* ── Action: toggle accordion ─────────────────────────── */
-  function toggleLevel(id) {
-    setOpenLevel((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
-  /* ── Action: save edited question ────────────────────── */
-  async function handleSave(pertanyaanId) {
-    const text = (editDraft[pertanyaanId] ?? "").trim();
-    if (!text) return;
-    setSavingId(pertanyaanId);
-    try {
-      await updatePertanyaanApi(pertanyaanId, { teks_pertanyaan: text });
-      setLevels((prev) =>
-        prev.map((lv) => ({
-          ...lv,
-          pertanyaans: (lv.pertanyaans || []).map((p) =>
-            p.id === pertanyaanId ? { ...p, teks_pertanyaan: text } : p,
-          ),
-        })),
-      );
-    } catch (err) {
-      alert(
-        "Gagal menyimpan: " + (err?.response?.data?.message ?? err.message),
-      );
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  /* ── Action: delete question ──────────────────────────── */
-  async function handleDelete(levelId, pertanyaanId) {
-    if (!window.confirm("Yakin ingin menghapus pertanyaan ini?")) return;
-    setDeletingId(pertanyaanId);
-    try {
-      await deletePertanyaanApi(pertanyaanId);
-      setLevels((prev) =>
-        prev.map((lv) =>
-          lv.id === levelId
-            ? {
-                ...lv,
-                pertanyaans: (lv.pertanyaans || []).filter(
-                  (p) => p.id !== pertanyaanId,
-                ),
-              }
-            : lv,
-        ),
-      );
-      setEditDraft((prev) => {
-        const next = { ...prev };
-        delete next[pertanyaanId];
-        return next;
-      });
-    } catch (err) {
-      alert(
-        "Gagal menghapus: " + (err?.response?.data?.message ?? err.message),
-      );
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  /* ── Action: add new question ─────────────────────────── */
-  async function handleAdd(levelId) {
-    const text = (newQuestion[levelId] ?? "").trim();
-    if (!text) return;
-    setAddingId(levelId);
-    try {
-      const res = await createPertanyaanApi(levelId, {
-        teks_pertanyaan: text,
-        tipe_pertanyaan: "ya_tidak",
-      });
-      const newP = res?.data ?? res;
-      setLevels((prev) =>
-        prev.map((lv) =>
-          lv.id === levelId
-            ? { ...lv, pertanyaans: [...(lv.pertanyaans || []), newP] }
-            : lv,
-        ),
-      );
-      setEditDraft((prev) => ({
-        ...prev,
-        [newP.id]: newP.teks_pertanyaan ?? "",
-      }));
-      setNewQuestion((prev) => ({ ...prev, [levelId]: "" }));
-    } catch (err) {
-      alert(
-        "Gagal menambah pertanyaan: " +
-          (err?.response?.data?.message ?? err.message),
-      );
-    } finally {
-      setAddingId(null);
-    }
-  }
 
   /* ── Derived monitoring stats ─────────────────────────── */
   const totalSekolah = schools.length;
@@ -233,10 +111,6 @@ export default function SuperAdminAssessment() {
     return matchSearch && matchStatus;
   });
 
-  const totalPertanyaan = levels.reduce(
-    (acc, lv) => acc + (lv.pertanyaans?.length ?? 0),
-    0,
-  );
 
   /* ── Render ───────────────────────────────────────────── */
   return (
@@ -535,6 +409,7 @@ export default function SuperAdminAssessment() {
                         </td>
                         <td style={td}>
                           <button
+                            onClick={() => navigate("/superadmin/verifikasi")}
                             className="btn btn-outline"
                             style={{
                               padding: "6px 14px",
@@ -559,416 +434,7 @@ export default function SuperAdminAssessment() {
         )}
       </div>
 
-      {/* ═══════════════════ MANAJEMEN KUISIONER ═══════════════════ */}
-      <div
-        className="card glass-panel"
-        style={{ padding: "28px", borderRadius: "28px" }}
-      >
-        {/* SECTION HEADER */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "28px",
-            gap: "12px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h2
-              style={{ fontSize: "24px", fontWeight: 800, marginBottom: "8px" }}
-            >
-              Manajemen Kuisioner
-            </h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-              Tambah, edit, dan hapus pertanyaan untuk setiap level UKS.
-            </p>
-          </div>
-          <div
-            style={{
-              background:
-                "linear-gradient(135deg,var(--primary),var(--secondary))",
-              color: "white",
-              padding: "10px 20px",
-              borderRadius: "14px",
-              fontWeight: 700,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <ClipboardList size={18} />
-            {loadingLevels ? "…" : totalPertanyaan} Pertanyaan
-          </div>
-        </div>
 
-        {/* LOADING */}
-        {loadingLevels ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "52px 0",
-              color: "var(--text-muted)",
-            }}
-          >
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                border: "3px solid #e5e7eb",
-                borderTop: "3px solid var(--primary)",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
-                margin: "0 auto 14px",
-              }}
-            />
-            <p style={{ fontSize: "14px" }}>Memuat data kuisioner…</p>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          </div>
-        ) : levels.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "52px 0",
-              color: "var(--text-muted)",
-            }}
-          >
-            <ClipboardList
-              size={40}
-              style={{ margin: "0 auto 12px", opacity: 0.35 }}
-            />
-            <p style={{ fontSize: "14px" }}>Belum ada level tersedia.</p>
-          </div>
-        ) : (
-          /* ACCORDION LIST */
-          levels.map((lv) => {
-            const palette = getLevelColor(lv.urutan ?? 1);
-            const isOpen = !!openLevel[lv.id];
-            const pertanyaans = lv.pertanyaans ?? [];
-
-            return (
-              <div
-                key={lv.id}
-                style={{
-                  border: "1px solid var(--border)",
-                  borderRadius: "22px",
-                  overflow: "hidden",
-                  marginBottom: "20px",
-                }}
-              >
-                {/* ── ACCORDION HEADER ── */}
-                <div
-                  onClick={() => toggleLevel(lv.id)}
-                  style={{
-                    padding: "18px 22px",
-                    background: "var(--bg-light)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: palette.bg,
-                        color: palette.color,
-                        padding: "6px 16px",
-                        borderRadius: "999px",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {lv.nama}
-                    </span>
-                    {lv.kode && (
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--text-muted)",
-                          background: "var(--border)",
-                          padding: "3px 10px",
-                          borderRadius: "999px",
-                        }}
-                      >
-                        {lv.kode}
-                      </span>
-                    )}
-                    <span
-                      style={{
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        fontSize: "14px",
-                      }}
-                    >
-                      {pertanyaans.length} Pertanyaan
-                    </span>
-                  </div>
-                  <div style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-                    {isOpen ? (
-                      <ChevronUp size={18} />
-                    ) : (
-                      <ChevronDown size={18} />
-                    )}
-                  </div>
-                </div>
-
-                {/* ── ACCORDION BODY ── */}
-                {isOpen && (
-                  <div style={{ padding: "24px" }}>
-                    {/* DESCRIPTION */}
-                    {lv.deskripsi && (
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "var(--text-muted)",
-                          marginBottom: "20px",
-                          paddingLeft: "4px",
-                        }}
-                      >
-                        {lv.deskripsi}
-                      </p>
-                    )}
-
-                    {/* PERTANYAAN LIST */}
-                    {pertanyaans.length === 0 && (
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "var(--text-muted)",
-                          marginBottom: "16px",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        Belum ada pertanyaan untuk level ini.
-                      </p>
-                    )}
-
-                    {pertanyaans.map((p, idx) => (
-                      <div
-                        key={p.id}
-                        style={{
-                          background: "#FAFAFA",
-                          border: "1px solid #EBEBEB",
-                          borderRadius: "18px",
-                          padding: "18px",
-                          marginBottom: "14px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "16px",
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          {/* TEXTAREA SIDE */}
-                          <div style={{ flex: 1, minWidth: "220px" }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                marginBottom: "10px",
-                              }}
-                            >
-                              <Pencil
-                                size={13}
-                                style={{ color: palette.color }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: "13px",
-                                  fontWeight: 700,
-                                  color: palette.color,
-                                }}
-                              >
-                                Pertanyaan {idx + 1}
-                              </span>
-                            </div>
-                            <textarea
-                              value={editDraft[p.id] ?? p.teks_pertanyaan ?? ""}
-                              onChange={(e) =>
-                                setEditDraft((prev) => ({
-                                  ...prev,
-                                  [p.id]: e.target.value,
-                                }))
-                              }
-                              rows={3}
-                              style={{
-                                width: "100%",
-                                minHeight: "86px",
-                                borderRadius: "14px",
-                                border: "1px solid #ddd",
-                                padding: "12px 14px",
-                                outline: "none",
-                                resize: "vertical",
-                                fontSize: "14px",
-                                lineHeight: 1.6,
-                                boxSizing: "border-box",
-                                fontFamily: "inherit",
-                                background: "white",
-                              }}
-                            />
-                          </div>
-
-                          {/* ACTION BUTTONS */}
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "8px",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <button
-                              onClick={() => handleSave(p.id)}
-                              disabled={savingId === p.id}
-                              title="Simpan perubahan"
-                              style={{
-                                width: "42px",
-                                height: "42px",
-                                border: "none",
-                                borderRadius: "12px",
-                                background: "#DBEAFE",
-                                color: "#2563EB",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                cursor: savingId === p.id ? "wait" : "pointer",
-                                opacity: savingId === p.id ? 0.55 : 1,
-                                transition: "opacity 0.2s",
-                              }}
-                            >
-                              <Save size={17} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(lv.id, p.id)}
-                              disabled={deletingId === p.id}
-                              title="Hapus pertanyaan"
-                              style={{
-                                width: "42px",
-                                height: "42px",
-                                border: "none",
-                                borderRadius: "12px",
-                                background: "#FEE2E2",
-                                color: "#DC2626",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                cursor:
-                                  deletingId === p.id ? "wait" : "pointer",
-                                opacity: deletingId === p.id ? 0.55 : 1,
-                                transition: "opacity 0.2s",
-                              }}
-                            >
-                              <Trash2 size={17} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* ADD NEW QUESTION */}
-                    <div
-                      style={{
-                        marginTop: "18px",
-                        border: "2px dashed #D1D5DB",
-                        borderRadius: "18px",
-                        padding: "20px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          marginBottom: "14px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        <Plus size={16} style={{ color: palette.color }} />
-                        Tambah Pertanyaan Baru
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "12px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <input
-                          type="text"
-                          value={newQuestion[lv.id] ?? ""}
-                          onChange={(e) =>
-                            setNewQuestion((prev) => ({
-                              ...prev,
-                              [lv.id]: e.target.value,
-                            }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleAdd(lv.id);
-                          }}
-                          placeholder="Masukkan pertanyaan baru…"
-                          style={{
-                            flex: 1,
-                            minWidth: "240px",
-                            height: "50px",
-                            borderRadius: "14px",
-                            border: "1px solid #D1D5DB",
-                            padding: "0 16px",
-                            outline: "none",
-                            fontSize: "14px",
-                            fontFamily: "inherit",
-                            background: "white",
-                            boxSizing: "border-box",
-                          }}
-                        />
-                        <button
-                          onClick={() => handleAdd(lv.id)}
-                          disabled={addingId === lv.id}
-                          style={{
-                            height: "50px",
-                            padding: "0 24px",
-                            border: "none",
-                            borderRadius: "14px",
-                            background: palette.color,
-                            color: "white",
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            cursor: addingId === lv.id ? "wait" : "pointer",
-                            opacity: addingId === lv.id ? 0.7 : 1,
-                            whiteSpace: "nowrap",
-                            transition: "opacity 0.2s",
-                            fontSize: "14px",
-                          }}
-                        >
-                          <Plus size={17} />
-                          {addingId === lv.id ? "Menyimpan…" : "Tambah"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
     </div>
   );
 }
@@ -1020,11 +486,10 @@ const inp = (h = "46px", pl = "16px") => ({
   height: h,
   borderRadius: "14px",
   border: "1px solid var(--border)",
-  background: "var(--bg-light)",
-  paddingLeft: pl,
-  paddingRight: "14px",
+  padding: `0 ${pl}`,
   outline: "none",
   fontSize: "14px",
-  color: "var(--text-main)",
+  fontFamily: "inherit",
+  background: "white",
   boxSizing: "border-box",
 });
