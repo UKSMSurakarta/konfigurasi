@@ -48,8 +48,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     ],
     konten: [
       { path: "/konten/dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
-      { path: "/konten/desain", label: "Editor Artikel", icon: <FileText size={20} /> },
-      { path: "/konten/berita", label: "Berita & Artikel", icon: <Home size={20} /> },
       { path: "/konten/galeri", label: "Galeri Media", icon: <Image size={20} /> },
     ],
   };

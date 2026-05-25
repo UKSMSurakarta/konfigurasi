@@ -42,6 +42,8 @@ export default function SuperAdminkontenDesain() {
   const [selectedTipe, setSelectedTipe] = useState("berita");
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
+  const [editorText, setEditorText] = useState("");
+  const [author, setAuthor] = useState("Admin Konten");
 
   /* ── load existing konten when in edit mode ─────────────── */
   useEffect(() => {
@@ -56,8 +58,10 @@ export default function SuperAdminkontenDesain() {
           setSelectedTipe(d.tipe || "berita");
           if (editorRef.current) {
             editorRef.current.innerHTML = d.isi || "";
+            setEditorText(d.isi || "");
           }
           if (d.thumbnail_url) setCover(d.thumbnail_url);
+          if (d.author?.name) setAuthor(d.author.name);
         }
       })
       .catch(() => showToast("Gagal memuat data artikel", "error"))
@@ -68,6 +72,7 @@ export default function SuperAdminkontenDesain() {
   const handleCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
+    setEditorText(editorRef.current?.innerHTML || "");
   };
 
   const handleImageUpload = async (e) => {
@@ -91,6 +96,44 @@ export default function SuperAdminkontenDesain() {
     if (!file) return;
     setCoverFile(file);
     setCover(URL.createObjectURL(file));
+  };
+
+  const getExcerpt = () => {
+    const html = editorText || (editorRef.current ? editorRef.current.innerHTML : "");
+    if (!html) return "Mulai menulis konten artikel...";
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    let txt = temp.textContent || temp.innerText || "";
+    txt = txt.replace(/Mulai menulis artikel\.\.\./g, "").trim();
+    txt = txt.replace(/Anda dapat menambahkan gambar, mengubah warna teks, membuat tulisan bold, italic, underline, serta mengatur layout artikel dengan fleksibel\./g, "").trim();
+    txt = txt.replace(/Editor ini mendukung desain artikel modern seperti Microsoft Word\./g, "").trim();
+    if (!txt) return "Mulai menulis konten artikel...";
+    return txt.length > 120 ? txt.substring(0, 120) + "..." : txt;
+  };
+
+  const getFormattedDate = () => {
+    return new Date().toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const getTagClassAndStyle = (tipe) => {
+    switch (tipe) {
+      case "berita":
+        return { className: "tag-success", style: {} };
+      case "agenda":
+        return { className: "tag-primary", style: {} };
+      case "pengumuman":
+        return { className: "tag-warning", style: {} };
+      case "galeri":
+      default:
+        return { 
+          className: "", 
+          style: { background: "#F3E8FF", color: "#9333EA" } 
+        };
+    }
   };
 
   /* ── save handler ─────────────────────────────────────────── */
@@ -417,6 +460,105 @@ export default function SuperAdminkontenDesain() {
             padding:13px;
           }
         }
+
+        .editor-sidebar {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        @media(min-width:1101px){
+          .editor-sidebar {
+            position: sticky;
+            top: 90px;
+          }
+        }
+
+        /* LIVE PREVIEW CARD STYLES */
+        .news-card {
+          background: var(--card-bg, #fff);
+          border-radius: 24px;
+          overflow: hidden;
+          border: 1px solid var(--border, #edf1f5);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+          transition: 0.3s;
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          text-align: left;
+        }
+
+        .news-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+        }
+
+        .news-img {
+          width: 100%;
+          height: 180px;
+          object-fit: cover;
+        }
+
+        .news-content {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .news-tag {
+          display: inline-block;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          margin-bottom: 12px;
+          align-self: flex-start;
+        }
+
+        .tag-success {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        .tag-primary {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .tag-warning {
+          background: #fef3c7;
+          color: #b45309;
+        }
+
+        .news-title {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--primary, #042C53);
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .news-excerpt {
+          color: var(--text-muted, #6c757d);
+          line-height: 1.6;
+          font-size: 0.85rem;
+          margin-bottom: 14px;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .news-meta {
+          margin-top: auto;
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: var(--text-muted, #94a3b8);
+          border-top: 1px solid var(--border, #edf1f5);
+          padding-top: 12px;
+        }
       `}</style>
 
       <div className="editor-page">
@@ -697,6 +839,7 @@ export default function SuperAdminkontenDesain() {
               contentEditable
               suppressContentEditableWarning
               className="editor-content"
+              onInput={() => setEditorText(editorRef.current?.innerHTML || "")}
             >
               <h2>Mulai menulis artikel...</h2>
 
@@ -714,165 +857,214 @@ export default function SuperAdminkontenDesain() {
           </div>
 
           {/* ========================= */}
-          {/* SIDEBAR */}
+          {/* SIDEBAR CONTAINER */}
           {/* ========================= */}
 
-          <div className="side-card">
-            <h3 className="side-title">Publikasi Artikel</h3>
+          <div className="editor-sidebar">
+            <div className="side-card" style={{ position: "static" }}>
+              <h3 className="side-title">Publikasi Artikel</h3>
 
-            {/* SIMPAN DRAFT */}
-            <button
-              className="action-btn btn-outline-custom"
-              disabled={saving}
-              onClick={() => handleSave(false)}
-              style={{
-                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-                border: "1px solid var(--border)",
-                color: "var(--primary)",
-              }}
-            >
-              {saving ? (
-                <Loader2
-                  size={18}
-                  style={{
-                    animation: "ed-spin 0.8s linear infinite",
-                  }}
-                />
-              ) : (
-                <Save size={18} />
-              )}
-              {saving ? "Menyimpan..." : "Simpan Draft"}
-            </button>
-
-            {/* POSTING */}
-            <button
-              className="action-btn btn-primary-custom"
-              disabled={saving}
-              onClick={() => handleSave(true)}
-            >
-              {saving ? (
-                <Loader2
-                  size={18}
-                  style={{
-                    animation: "ed-spin 0.8s linear infinite",
-                  }}
-                />
-              ) : (
-                <Upload size={18} />
-              )}
-              {saving ? "Memproses..." : "Posting Artikel"}
-            </button>
-
-            {/* PREVIEW */}
-            <button className="action-btn btn-outline-custom">
-              <Eye size={18} />
-              Preview Artikel
-            </button>
-
-            {/* BATAL / HAPUS */}
-            <button
-              className="action-btn btn-danger-custom"
-              onClick={() => navigate("/superadmin/konten")}
-            >
-              <Trash2 size={18} />
-              {editId ? "Batal Edit" : "Hapus Draft"}
-            </button>
-
-            {/* META */}
-            <div className="meta-box">
-              {/* STATUS */}
-              <div className="meta-item">
-                <span>Status</span>
-                <span
-                  style={{
-                    color: "#F59E0B",
-                    fontWeight: 700,
-                  }}
-                >
-                  {editId ? "Edit" : "Draft"}
-                </span>
-              </div>
-
-              {/* TIPE / KATEGORI */}
-              <div
+              {/* SIMPAN DRAFT */}
+              <button
+                className="action-btn btn-outline-custom"
+                disabled={saving}
+                onClick={() => handleSave(false)}
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
+                  background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                  border: "1px solid var(--border)",
+                  color: "var(--primary)",
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "14px",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  Tipe Konten
-                </span>
+                {saving ? (
+                  <Loader2
+                    size={18}
+                    style={{
+                      animation: "ed-spin 0.8s linear infinite",
+                    }}
+                  />
+                ) : (
+                  <Save size={18} />
+                )}
+                {saving ? "Menyimpan..." : "Simpan Draft"}
+              </button>
 
-                <select
-                  value={selectedTipe}
-                  onChange={(e) => setSelectedTipe(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: "48px",
-                    borderRadius: "14px",
-                    border: "1px solid var(--border)",
-                    background: "var(--bg-light)",
-                    padding: "0 14px",
-                    outline: "none",
-                    color: "var(--text-main)",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {TIPE_OPTIONS.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* PENULIS */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
+              {/* POSTING */}
+              <button
+                className="action-btn btn-primary-custom"
+                disabled={saving}
+                onClick={() => handleSave(true)}
               >
-                <span
+                {saving ? (
+                  <Loader2
+                    size={18}
+                    style={{
+                      animation: "ed-spin 0.8s linear infinite",
+                    }}
+                  />
+                ) : (
+                  <Upload size={18} />
+                )}
+                {saving ? "Memproses..." : "Posting Artikel"}
+              </button>
+
+              {/* PREVIEW */}
+              <button className="action-btn btn-outline-custom">
+                <Eye size={18} />
+                Preview Artikel
+              </button>
+
+              {/* BATAL / HAPUS */}
+              <button
+                className="action-btn btn-danger-custom"
+                onClick={() => navigate("/superadmin/konten")}
+              >
+                <Trash2 size={18} />
+                {editId ? "Batal Edit" : "Hapus Draft"}
+              </button>
+
+              {/* META */}
+              <div className="meta-box">
+                {/* STATUS */}
+                <div className="meta-item">
+                  <span>Status</span>
+                  <span
+                    style={{
+                      color: "#F59E0B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {editId ? "Edit" : "Draft"}
+                  </span>
+                </div>
+
+                {/* TIPE / KATEGORI */}
+                <div
                   style={{
-                    fontSize: "14px",
-                    color: "var(--text-muted)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
                 >
-                  Penulis
-                </span>
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Tipe Konten
+                  </span>
 
-                <input
-                  type="text"
-                  placeholder="Masukkan nama penulis..."
-                  defaultValue="Admin Konten"
+                  <select
+                    value={selectedTipe}
+                    onChange={(e) => setSelectedTipe(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "48px",
+                      borderRadius: "14px",
+                      border: "1px solid var(--border)",
+                      background: "var(--bg-light)",
+                      padding: "0 14px",
+                      outline: "none",
+                      color: "var(--text-main)",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {TIPE_OPTIONS.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* PENULIS */}
+                <div
                   style={{
-                    width: "100%",
-                    height: "48px",
-                    borderRadius: "14px",
-                    border: "1px solid var(--border)",
-                    background: "var(--bg-light)",
-                    padding: "0 14px",
-                    outline: "none",
-                    color: "var(--text-main)",
-                    fontWeight: 600,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
-                />
-              </div>
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Penulis
+                  </span>
 
-              {/* TERAKHIR EDIT */}
-              <div className="meta-item">
-                <span>Terakhir Edit</span>
-                <span>Hari Ini</span>
+                  <input
+                    type="text"
+                    placeholder="Masukkan nama penulis..."
+                    value={author}
+                    onChange={(e) => setAuthor(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "48px",
+                      borderRadius: "14px",
+                      border: "1px solid var(--border)",
+                      background: "var(--bg-light)",
+                      padding: "0 14px",
+                      outline: "none",
+                      color: "var(--text-main)",
+                      fontWeight: 600,
+                    }}
+                  />
+                </div>
+
+                {/* TERAKHIR EDIT */}
+                <div className="meta-item">
+                  <span>Terakhir Edit</span>
+                  <span>Hari Ini</span>
+                </div>
+              </div>
+            </div>
+
+            {/* LIVE PREVIEW CARD */}
+            <div className="side-card" style={{ position: "static" }}>
+              <h3 className="side-title">Live Preview</h3>
+              
+              <div className="news-card">
+                {cover ? (
+                  <img src={cover} alt="Cover Preview" className="news-img" />
+                ) : (
+                  <div 
+                    className="news-img" 
+                    style={{ 
+                      background: "linear-gradient(135deg, var(--primary), var(--secondary))", 
+                      display: "flex", 
+                      alignItems: "center", 
+                      justifyContent: "center", 
+                      color: "white",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      height: "180px"
+                    }}
+                  >
+                    Belum ada Cover
+                  </div>
+                )}
+                
+                <div className="news-content">
+                  <span className={`news-tag ${getTagClassAndStyle(selectedTipe).className}`} style={getTagClassAndStyle(selectedTipe).style}>
+                    {TIPE_OPTIONS.find(t => t.value === selectedTipe)?.label || selectedTipe}
+                  </span>
+                  
+                  <h5 className="news-title">
+                    {title && title !== "Judul Artikel..." ? title : "Judul Artikel..."}
+                  </h5>
+                  
+                  <p className="news-excerpt">
+                    {getExcerpt()}
+                  </p>
+                  
+                  <div className="news-meta">
+                    <span>{getFormattedDate()}</span>
+                    <span>Oleh: {author || "Admin Konten"}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
