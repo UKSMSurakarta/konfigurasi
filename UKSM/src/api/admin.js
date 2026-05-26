@@ -12,6 +12,12 @@ export const getAdminSekolahsApi = (params) =>
   axiosInstance.get("/admin/sekolahs", { params }).then((r) => r.data);
 export const getAdminSekolahDetailApi = (id) =>
   axiosInstance.get(`/admin/sekolahs/${id}`).then((r) => r.data);
+export const createAdminSekolahApi = (data) =>
+  axiosInstance.post("/admin/sekolahs", data).then((r) => r.data);
+export const updateAdminSekolahApi = (id, data) =>
+  axiosInstance.put(`/admin/sekolahs/${id}`, data).then((r) => r.data);
+export const deleteAdminSekolahApi = (id) =>
+  axiosInstance.delete(`/admin/sekolahs/${id}`).then((r) => r.data);
 
 // Verifikasi
 export const getVerifikasiListApi = () =>
@@ -22,7 +28,9 @@ export const verifikasiSekolahApi = (sekolahId, levelId, data) =>
     .then((r) => r.data);
 
 export const getSekolahAssessmentDetailApi = (sekolahId) =>
-  axiosInstance.get(`/admin/verifikasi/sekolah/${sekolahId}`).then((r) => r.data);
+  axiosInstance
+    .get(`/admin/verifikasi/sekolah/${sekolahId}`)
+    .then((r) => r.data);
 
 // Laporan
 export const getRekapSekolahApi = (params) =>
@@ -97,5 +105,7 @@ export const getKontenDetailApi = (id) =>
 export const uploadKontenImageApi = (file) => {
   const formData = new FormData();
   formData.append("image", file);
-  return axiosInstance.post("/user/kontens/upload-image", formData).then((r) => r.data);
+  return axiosInstance
+    .post("/user/kontens/upload-image", formData)
+    .then((r) => r.data);
 };
