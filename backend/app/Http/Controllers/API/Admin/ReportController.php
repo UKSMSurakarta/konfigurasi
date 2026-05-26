@@ -18,12 +18,18 @@ class ReportController extends Controller
      */
     public function rekapSekolah(Request $request)
     {
+        $user = auth()->user();
+
         $query = Sekolah::with(['opd', 'levelSubmissions' => function($q) use ($request) {
             if ($request->period_id) $q->where('period_id', $request->period_id);
             $q->whereIn('status', ['final', 'verified']);
         }]);
 
-        if ($request->opd_id) $query->where('opd_id', $request->opd_id);
+        if ($user && $user->role !== 'superadmin') {
+            $query->where('opd_id', $user->opd_id);
+        } elseif ($request->opd_id) {
+            $query->where('opd_id', $request->opd_id);
+        }
         if ($request->jenjang) $query->where('jenjang', $request->jenjang);
 
         $sekolahs = $query->get()->map(function($s) {

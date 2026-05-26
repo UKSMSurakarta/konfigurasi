@@ -9,10 +9,10 @@ export default function SekolahDashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    const [levels, setLevels]     = useState([]);
+    const [levels, setLevels] = useState([]);
     const [pengumuman, setPengumuman] = useState([]);
-    const [periode, setPeriode]   = useState(null);
-    const [loading, setLoading]   = useState(true);
+    const [periode, setPeriode] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         Promise.all([
@@ -28,12 +28,12 @@ export default function SekolahDashboard() {
     }, []);
 
     // Hitung progress dari levels
-    const totalLevels   = levels.length;
-    const doneLevels    = levels.filter(l => l.status === "submitted" || l.status === "verified").length;
-    const progressPct   = totalLevels > 0 ? Math.round((doneLevels / totalLevels) * 100) : 0;
-    const isVerified    = levels.length > 0 && levels.every(l => l.status === "verified");
+    const totalLevels = levels.length;
+    const doneLevels = levels.filter(l => l.status === "submitted" || l.status === "verified" || l.status === "final").length;
+    const progressPct = totalLevels > 0 ? Math.round((doneLevels / totalLevels) * 100) : 0;
+    const isVerified = levels.length > 0 && levels.every(l => l.status === "verified");
     const certificateReady = isVerified;
-    const statusLabel   = isVerified ? "Terverifikasi ✓" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
+    const statusLabel = isVerified ? "Terverifikasi ✓" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
 
     if (loading) return <LoadingSpinner />;
 
@@ -71,10 +71,10 @@ export default function SekolahDashboard() {
 
             {/* TOP CARDS */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "18px", marginBottom: "22px" }}>
-                <TopCard icon={<Activity size={26} />}     label="Status Pengisian"  value={statusLabel}             iconBg="var(--accent-glow)"    iconColor="var(--secondary)" />
-                <TopCard icon={<CheckCircle size={26} />}  label="Level Selesai"     value={`${doneLevels} / ${totalLevels}`} iconBg="var(--bg-light)"  iconColor="var(--primary)" />
-                <TopCard icon={<Clock size={26} />}        label="Progress"          value={`${progressPct}%`}       iconBg="var(--bg-light)"       iconColor="var(--text-main)" />
-                <TopCard icon={<CalendarDays size={26} />} label="Deadline Asesmen"  value={periode || "–"}          iconBg="rgba(255,99,71,0.12)"  iconColor="#ff5b45" valueColor="#ff5b45" />
+                <TopCard icon={<Activity size={26} />} label="Status Pengisian" value={statusLabel} iconBg="var(--accent-glow)" iconColor="var(--secondary)" />
+                <TopCard icon={<CheckCircle size={26} />} label="Level Selesai" value={`${doneLevels} / ${totalLevels}`} iconBg="var(--bg-light)" iconColor="var(--primary)" />
+                <TopCard icon={<Clock size={26} />} label="Progress" value={`${progressPct}%`} iconBg="var(--bg-light)" iconColor="var(--text-main)" />
+                <TopCard icon={<CalendarDays size={26} />} label="Deadline Asesmen" value={periode || "–"} iconBg="rgba(255,99,71,0.12)" iconColor="#ff5b45" valueColor="#ff5b45" />
             </div>
 
             {/* GRID PROGRES + PENGUMUMAN */}
@@ -93,8 +93,8 @@ export default function SekolahDashboard() {
                     <div style={{ display: "grid", gap: "18px" }}>
                         {levels.length === 0 && <p className="text-muted" style={{ fontSize: "13px" }}>Belum ada level assessment.</p>}
                         {levels.map(level => {
-                            const done = level.status === "submitted" || level.status === "verified";
-                            const pct  = done ? 100 : (level.progress_persen ?? level.answered_pct ?? 0);
+                            const done = level.status === "submitted" || level.status === "verified" || level.status === "final";
+                            const pct = done ? 100 : (level.progress_persen ?? level.answered_pct ?? 0);
                             const color = done ? "#16A34A" : pct > 50 ? "#F59E0B" : "var(--primary)";
                             return (
                                 <div key={level.id}>
@@ -132,12 +132,24 @@ export default function SekolahDashboard() {
                     </div>
                     <div style={{ display: "grid", gap: "12px" }}>
                         {pengumuman.length === 0 && <p className="text-muted" style={{ fontSize: "13px" }}>Belum ada notifikasi.</p>}
-                        {pengumuman.map((p) => (
-                            <div key={p.id} style={{ padding: "14px 16px", borderRadius: "16px", background: "var(--bg-light)", border: "1px solid var(--border)" }}>
-                                <div style={{ fontWeight: "600", marginBottom: "4px", color: "var(--text-main)", fontSize: "14px" }}>{p.judul || p.data?.judul || p.type}</div>
-                                <div style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-muted)" }}>{(p.isi || p.data?.isi || "")?.substring(0, 100)}</div>
-                            </div>
-                        ))}
+                        {pengumuman.map((p) => {
+                            let title = p.judul || p.data?.judul || p.type;
+                            let body = p.isi || p.data?.isi || "";
+                            if (p.type && p.type.includes("LevelVerifiedNotification")) {
+                                title = p.data?.status === "disetujui" ? "✅ Verifikasi Level Disetujui" : "❌ Verifikasi Level Ditolak";
+                                body = p.data?.message || "";
+                                // Jika ada catatan khusus dari admin yang belum tergabung, tambahkan:
+                                if (p.data?.catatan && !body.includes(p.data.catatan)) {
+                                    body += `\nCatatan : ${p.data.catatan}`;
+                                }
+                            }
+                            return (
+                                <div key={p.id} style={{ padding: "14px 16px", borderRadius: "16px", background: "var(--bg-light)", border: "1px solid var(--border)" }}>
+                                    <div style={{ fontWeight: "600", marginBottom: "4px", color: "var(--text-main)", fontSize: "14px" }}>{title}</div>
+                                    <div style={{ fontSize: "13px", lineHeight: "1.6", color: "var(--text-muted)" }}>{(body || "")?.substring(0, 150)}</div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

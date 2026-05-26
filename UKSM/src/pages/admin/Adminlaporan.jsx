@@ -11,26 +11,28 @@ export default function AdminAnalisisLaporan() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        getRekapSekolahApi()
-            .then(res => {
-                const body = res.data ?? res;
-                const schoolsList = body.data ?? body.sekolah?.data ?? body.sekolah ?? (Array.isArray(body) ? body : []);
-                setData(body.stats ?? {});
-                setSchools(Array.isArray(schoolsList) ? schoolsList : []);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        Promise.all([
+            getRekapSekolahApi(),
+            import("../../api/admin").then(m => m.getAdminDashboardApi())
+        ]).then(([rekapRes, dashRes]) => {
+            const body = rekapRes.data ?? rekapRes;
+            const schoolsList = body.data ?? body.sekolah?.data ?? body.sekolah ?? (Array.isArray(body) ? body : []);
+            setSchools(Array.isArray(schoolsList) ? schoolsList : []);
+
+            const dashData = dashRes.data || dashRes;
+            setData(dashData);
+        }).catch(console.error).finally(() => setLoading(false));
     }, []);
 
     if (loading) return <LoadingSpinner />;
 
-    const stats    = data || {};
-    const total    = stats.total_sekolah ?? schools.length;
-    const selesai  = stats.terverifikasi  ?? 0;
-    const menunggu = stats.menunggu_verifikasi ?? 0;
-    const belum    = stats.belum_selesai  ?? 0;
-    const avg      = stats.rata_rata_progress ?? 0;
-    const predikat = stats.rekap_predikat || [];
+    const dashStats = data?.stats || {};
+    const total    = dashStats.total_sekolah ?? schools.length;
+    const selesai  = dashStats.terverifikasi  ?? 0;
+    const menunggu = dashStats.menunggu_verifikasi ?? 0;
+    const belum    = dashStats.belum_selesai  ?? 0;
+    const predikat = data?.rekap_predikat || [];
+    const persen   = total > 0 ? Math.round((selesai / total) * 100) : 0;
 
     return (
         <div style={{ width: "100%", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "22px" }}>
@@ -44,7 +46,7 @@ export default function AdminAnalisisLaporan() {
                         Monitoring data assessment, progres verifikasi, serta laporan sekolah binaan.
                     </p>
                 </div>
-                <div className="badge badge-glow" style={{ whiteSpace: "nowrap" }}>{stats.periode || "Periode Aktif"}</div>
+                <div className="badge badge-glow" style={{ whiteSpace: "nowrap" }}>{data?.periode || "Periode Aktif"}</div>
             </div>
 
             {/* STATISTIK */}
@@ -74,17 +76,48 @@ export default function AdminAnalisisLaporan() {
                     </div>
                 </div>
 
-                {/* ANALISIS PROGRES */}
-                <div className="card glass-panel" style={{ padding: "24px", borderRadius: "24px" }}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: "22px" }}>
-                        <BarChart3 size={20} color="var(--secondary)" />
-                        <h3 style={{ fontSize: "18px", fontWeight: 700 }}>Progress Assessment</h3>
+                {/* ANALISIS PROGRES (PIE CHART) */}
+                <div className="card glass-panel" style={{ padding: "28px", borderRadius: "28px", minWidth: 0 }}>
+                    <div className="flex items-center gap-2" style={{ marginBottom: "6px" }}>
+                        <PieChart size={20} color="var(--primary)" />
+                        <h3 style={{ fontSize: "20px", fontWeight: 700 }}>Analisis Progress Assessment</h3>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "14px" }}>
-                        <MiniCard title="Rata-rata Progress" value={`${avg}%`} />
-                        <MiniCard title="Terverifikasi"       value={String(selesai)} />
-                        <MiniCard title="Belum Selesai"       value={String(belum)} />
-                        <MiniCard title="Menunggu Verifikasi" value={String(menunggu)} />
+                    <p className="text-muted" style={{ fontSize: "13px", marginBottom: "24px" }}>Rekap status assessment sekolah binaan</p>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+                        <div style={{
+                            width: "200px", height: "200px", borderRadius: "50%", position: "relative",
+                            background: total > 0
+                                ? `conic-gradient(#16A34A 0% ${(selesai/total*100).toFixed(1)}%, #F59E0B ${(selesai/total*100).toFixed(1)}% ${((selesai+menunggu)/total*100).toFixed(1)}%, #DC2626 ${((selesai+menunggu)/total*100).toFixed(1)}% 100%)`
+                                : "#e5e7eb",
+                        }}>
+                            <div style={{ position: "absolute", inset: "25px", background: "white", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", textAlign: "center" }}>
+                                <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1 }}>{persen}%</div>
+                                <span className="text-muted" style={{ fontSize: "12px", marginTop: "6px" }}>Progress</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <div className="flex items-center justify-between" style={{ gap: "16px" }}>
+                            <div className="flex items-center gap-3">
+                                <div style={{ width: "14px", height: "14px", borderRadius: "999px", background: "#16A34A" }} />
+                                <span style={{ fontWeight: 600, fontSize: "14px" }}>Terverifikasi</span>
+                            </div>
+                            <span className="text-muted" style={{ fontSize: "13px" }}>{selesai} Sekolah</span>
+                        </div>
+                        <div className="flex items-center justify-between" style={{ gap: "16px" }}>
+                            <div className="flex items-center gap-3">
+                                <div style={{ width: "14px", height: "14px", borderRadius: "999px", background: "#F59E0B" }} />
+                                <span style={{ fontWeight: 600, fontSize: "14px" }}>Menunggu Verifikasi</span>
+                            </div>
+                            <span className="text-muted" style={{ fontSize: "13px" }}>{menunggu} Sekolah</span>
+                        </div>
+                        <div className="flex items-center justify-between" style={{ gap: "16px" }}>
+                            <div className="flex items-center gap-3">
+                                <div style={{ width: "14px", height: "14px", borderRadius: "999px", background: "#DC2626" }} />
+                                <span style={{ fontWeight: 600, fontSize: "14px" }}>Belum Selesai</span>
+                            </div>
+                            <span className="text-muted" style={{ fontSize: "13px" }}>{belum} Sekolah</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -146,14 +179,7 @@ function StatCard({ icon, title, value, color, bg }) {
         </div>
     );
 }
-function MiniCard({ title, value }) {
-    return (
-        <div style={{ padding: "14px", borderRadius: "16px", background: "var(--bg-light)", border: "1px solid var(--border)" }}>
-            <div className="text-muted" style={{ fontSize: "12px", marginBottom: "6px" }}>{title}</div>
-            <div style={{ fontSize: "18px", fontWeight: 700, lineHeight: 1.3 }}>{value}</div>
-        </div>
-    );
-}
+
 function ProgressItem({ title, value, width, color }) {
     return (
         <div>

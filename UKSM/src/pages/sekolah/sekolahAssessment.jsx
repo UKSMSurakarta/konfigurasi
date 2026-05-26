@@ -31,10 +31,12 @@ export default function SekolahAssessment() {
         setLoading(true);
         getSekolahLevelsApi()
             .then(res => {
-                const list = res.data?.data ?? res.data ?? [];
-                setLevels(Array.isArray(list) ? list : []);
+                const raw = res.data?.data ?? res.data ?? [];
+                // Urutkan berdasarkan field urutan agar sesuai dengan pengaturan SuperAdmin
+                const list = (Array.isArray(raw) ? raw : []).slice().sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+                setLevels(list);
                 // Buka level pertama yang belum disubmit secara permanen
-                const firstOpen = (Array.isArray(list) ? list : []).find(l => l.status !== "submitted" && l.status !== "verified" && l.status !== "final");
+                const firstOpen = list.find(l => l.status !== "submitted" && l.status !== "verified" && l.status !== "final");
                 if (firstOpen) setOpenLevel(firstOpen.id);
             })
             .catch(console.error)
@@ -364,7 +366,7 @@ export default function SekolahAssessment() {
                                         return (
                                             <div key={q.id} style={questionCard}>
                                                 <div style={questionText}>
-                                                    {i + 1}. {q.pertanyaan || q.teks || q.text}
+                                                    {i + 1}. {q.teks_pertanyaan || q.pertanyaan || q.teks || q.text}
                                                 </div>
 
                                                 {/* TOMBOL YA/TIDAK */}

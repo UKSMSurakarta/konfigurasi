@@ -171,7 +171,7 @@ class VerificationController extends Controller
                     }
                     return [
                         "id" => $p->id,
-                        "pertanyaan" => $p->pertanyaan,
+                        "pertanyaan" => $p->teks_pertanyaan,
                         "jawaban" => $j
                             ? ($j->jawaban_teks === "ya"
                                 ? "Memenuhi"

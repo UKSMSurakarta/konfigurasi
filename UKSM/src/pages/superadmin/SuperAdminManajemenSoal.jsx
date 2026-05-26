@@ -182,9 +182,19 @@ export default function SuperAdminManajemenSoal() {
         await createAdminLevelApi(levelForm);
       }
       setShowLevelModal(false);
-      // reload levels
+      // reload levels dengan parsing yang benar
       const res = await getAdminLevelsApi();
-      setLevels(Array.isArray(res?.data) ? res.data : []);
+      const raw = res?.data ?? res ?? [];
+      const arr = Array.isArray(raw) ? raw : [];
+      setLevels(arr);
+      // re-seed editDraft agar pertanyaan yang sudah ada tetap bisa diedit
+      const drafts = {};
+      arr.forEach((lv) =>
+        (lv.pertanyaans || []).forEach((p) => {
+          drafts[p.id] = p.teks_pertanyaan ?? "";
+        }),
+      );
+      setEditDraft(drafts);
     } catch (err) {
       alert("Gagal menyimpan level: " + (err?.response?.data?.message ?? err.message));
     } finally {
@@ -198,9 +208,21 @@ export default function SuperAdminManajemenSoal() {
     if (!window.confirm("Yakin ingin menghapus level ini? Pastikan tidak ada sekolah yang sudah mengisi di level ini.")) return;
     try {
       await deleteAdminLevelApi(id);
-      // reload levels
+      // reload levels dengan parsing yang benar
       const res = await getAdminLevelsApi();
-      setLevels(Array.isArray(res?.data) ? res.data : []);
+      const raw = res?.data ?? res ?? [];
+      const arr = Array.isArray(raw) ? raw : [];
+      setLevels(arr);
+      // re-seed editDraft setelah reload
+      const drafts = {};
+      arr.forEach((lv) =>
+        (lv.pertanyaans || []).forEach((p) => {
+          drafts[p.id] = p.teks_pertanyaan ?? "";
+        }),
+      );
+      setEditDraft(drafts);
+      // Tutup accordion level yang dihapus jika terbuka
+      setOpenLevel((prev) => { const next = { ...prev }; delete next[id]; return next; });
     } catch (err) {
       alert("Gagal menghapus level: " + (err?.response?.data?.message ?? err.message));
     }

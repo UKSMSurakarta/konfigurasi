@@ -57,6 +57,15 @@ export default function AdminVerifikasiDetail() {
         try {
             const json = await getSekolahAssessmentDetailApi(sekolahId);
             if (json.success) {
+                // Urutkan levels berdasarkan urutan
+                if (json.data && Array.isArray(json.data.details)) {
+                    json.data.details.sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+                    json.data.details.forEach(lvl => {
+                        if (Array.isArray(lvl.questions)) {
+                            lvl.questions.sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+                        }
+                    });
+                }
                 setData(json.data);
                 // Open all levels by default
                 const all = {};
@@ -330,7 +339,9 @@ export default function AdminVerifikasiDetail() {
 
                                                 <div style={{ flex:1, minWidth:0 }}>
                                                     <div style={{ fontSize:"13px", fontWeight:600, lineHeight:1.5, marginBottom:"7px" }}>
-                                                        {q.pertanyaan}
+                                                        {q.teks_pertanyaan || 
+                                                         (typeof q.pertanyaan === 'object' ? q.pertanyaan?.teks_pertanyaan || q.pertanyaan?.pertanyaan : q.pertanyaan) || 
+                                                         q.teks || q.text || "Teks pertanyaan tidak tersedia"}
                                                     </div>
                                                     <div style={{ display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
                                                         {/* Jawaban badge */}
