@@ -59,6 +59,36 @@ export default function SuperAdminkonten() {
   const [filterTipe, setFilterTipe] = useState("");
   const [deleting, setDeleting] = useState(null);
   const [toggling, setToggling] = useState(null);
+  const [selectedKonten, setSelectedKonten] = useState(null);
+
+  const getExcerpt = (html) => {
+    if (!html) return "Tidak ada konten...";
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    let txt = temp.textContent || temp.innerText || "";
+    txt = txt.trim();
+    if (!txt) return "Tidak ada konten...";
+    return txt.length > 100 ? txt.substring(0, 100) + "..." : txt;
+  };
+
+  const getTagClassAndStyle = (tipe) => {
+    switch (tipe) {
+      case "berita":
+        return { className: "tag-success", style: {} };
+      case "agenda":
+        return { className: "tag-primary", style: {} };
+      case "pengumuman":
+        return { className: "tag-warning", style: {} };
+      case "galeri":
+      default:
+        return { 
+          className: "", 
+          style: { background: "#F3E8FF", color: "#9333EA" } 
+        };
+    }
+  };
+
+  const currentSelection = kontens.find(k => k.id === selectedKonten?.id) || kontens[0] || null;
 
   /* load ---------------------------------------------------- */
   const loadKontens = useCallback(async () => {
@@ -156,6 +186,120 @@ export default function SuperAdminkonten() {
             border-radius: 22px !important;
           }
         }
+
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 24px;
+          align-items: start;
+        }
+
+        @media (min-width: 1025px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr 340px;
+          }
+        }
+
+        .preview-column {
+          position: relative;
+        }
+
+        @media (min-width: 1025px) {
+          .preview-column {
+            position: sticky;
+            top: 90px;
+          }
+        }
+
+        .preview-detail-btn:hover {
+          background: var(--border) !important;
+        }
+
+        /* PREVIEW CARD STYLES */
+        .news-card {
+          background: var(--card-bg, #fff);
+          border-radius: 24px;
+          overflow: hidden;
+          border: 1px solid var(--border, #edf1f5);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+          transition: 0.3s;
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          text-align: left;
+        }
+
+        .news-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+        }
+
+        .news-img {
+          width: 100%;
+          height: 180px;
+          object-fit: cover;
+        }
+
+        .news-content {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .news-tag {
+          display: inline-block;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          margin-bottom: 12px;
+          align-self: flex-start;
+        }
+
+        .tag-success {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        .tag-primary {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .tag-warning {
+          background: #fef3c7;
+          color: #b45309;
+        }
+
+        .news-title {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--primary, #042C53);
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .news-excerpt {
+          color: var(--text-muted, #6c757d);
+          line-height: 1.6;
+          font-size: 0.85rem;
+          margin-bottom: 14px;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .news-meta {
+          margin-top: auto;
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: var(--text-muted, #94a3b8);
+          border-top: 1px solid var(--border, #edf1f5);
+          padding-top: 12px;
+        }
       `}</style>
 
       {/* ── HEADER ── */}
@@ -224,309 +368,418 @@ export default function SuperAdminkonten() {
         />
       </div>
 
-      {/* ── DRAFT TERBARU ── */}
-      <div
-        className="card glass-panel sa-section-card mb-6"
-        style={{ padding: 26, borderRadius: 28 }}
-      >
-        {/* header */}
-        <div
-          className="flex items-center justify-between mb-5 sa-mobile-stack"
-          style={{ gap: 18, alignItems: "flex-start" }}
-        >
-          <div className="flex items-center gap-3" style={{ flexWrap: "wrap" }}>
+      {/* ── LAYOUT GRID ── */}
+      <div className="dashboard-grid">
+        {/* LEFT COLUMN: DRAFTS & PUBLISHED TABLES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* ── DRAFT TERBARU ── */}
+          <div
+            className="card glass-panel sa-section-card"
+            style={{ padding: 26, borderRadius: 28 }}
+          >
+            {/* header */}
             <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 16,
-                background: "var(--bg-light)",
-                color: "var(--primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
+              className="flex items-center justify-between mb-5 sa-mobile-stack"
+              style={{ gap: 18, alignItems: "flex-start" }}
             >
-              <CalendarDays size={22} />
+              <div className="flex items-center gap-3" style={{ flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 16,
+                    background: "var(--bg-light)",
+                    color: "var(--primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <CalendarDays size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+                    Draft Terbaru
+                  </h3>
+                  <p className="text-muted" style={{ fontSize: 13 }}>
+                    Artikel yang masih dalam proses editing
+                  </p>
+                </div>
+              </div>
+
+              <button
+                className="btn btn-outline"
+                onClick={loadKontens}
+                disabled={loading}
+                style={{ gap: 8, opacity: loading ? 0.6 : 1 }}
+              >
+                <RefreshCw size={15} />
+                Refresh
+              </button>
             </div>
-            <div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-                Draft Terbaru
-              </h3>
-              <p className="text-muted" style={{ fontSize: 13 }}>
-                Artikel yang masih dalam proses editing
-              </p>
-            </div>
-          </div>
 
-          <button
-            className="btn btn-outline"
-            onClick={loadKontens}
-            disabled={loading}
-            style={{ gap: 8, opacity: loading ? 0.6 : 1 }}
-          >
-            <RefreshCw size={15} />
-            Refresh
-          </button>
-        </div>
-
-        {/* body */}
-        {loading ? (
-          <LoadingSkeletons count={3} />
-        ) : recentDrafts.length === 0 ? (
-          <EmptyState label="Tidak ada draft saat ini" />
-        ) : (
-          <div className="sa-draft-list">
-            {recentDrafts.map((k) => (
-              <DraftItem
-                key={k.id}
-                konten={k}
-                isDeleting={deleting === k.id}
-                onEdit={() =>
-                  navigate(`/superadmin/konten-desain?edit=${k.id}`)
-                }
-                onDelete={() => handleDelete(k.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── KONTEN TERBIT (table) ── */}
-      <div
-        className="card glass-panel sa-section-card"
-        style={{ padding: 26, borderRadius: 28 }}
-      >
-        {/* header */}
-        <div
-          className="flex items-center justify-between mb-5 sa-mobile-stack"
-          style={{ gap: 18, alignItems: "flex-start" }}
-        >
-          <div className="flex items-center gap-3" style={{ flexWrap: "wrap" }}>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 16,
-                background: "var(--accent-glow)",
-                color: "var(--secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Newspaper size={22} />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-                Konten Terbit
-              </h3>
-              <p className="text-muted" style={{ fontSize: 13 }}>
-                Semua konten yang sudah dipublikasikan
-              </p>
-            </div>
-          </div>
-
-          {/* filter by tipe */}
-          <select
-            value={filterTipe}
-            onChange={(e) => setFilterTipe(e.target.value)}
-            style={{
-              height: 40,
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--card-bg)",
-              padding: "0 14px",
-              outline: "none",
-              fontSize: 14,
-              color: "var(--text-main)",
-              cursor: "pointer",
-            }}
-          >
-            <option value="">Semua Tipe</option>
-            {Object.entries(TIPE_CONFIG).map(([val, cfg]) => (
-              <option key={val} value={val}>
-                {cfg.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* table */}
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              minWidth: 720,
-            }}
-          >
-            <thead>
-              <tr style={{ background: "var(--bg-light)" }}>
-                {["Judul", "Tipe", "Penulis", "Tanggal", "Status", "Aksi"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "13px 16px",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: "var(--text-main)",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: 40, textAlign: "center" }}>
-                    <Spinner />
-                  </td>
-                </tr>
-              ) : published.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 32,
-                      textAlign: "center",
-                      color: "var(--text-muted)",
-                      fontSize: 14,
-                    }}
-                  >
-                    Belum ada konten yang diterbitkan
-                  </td>
-                </tr>
-              ) : (
-                published.map((k) => {
-                  const tipe = TIPE_CONFIG[k.tipe] || {
-                    label: k.tipe || "-",
-                    bg: "#F3F4F6",
-                    color: "#6B7280",
-                  };
+            {/* body */}
+            {loading ? (
+              <LoadingSkeletons count={3} />
+            ) : recentDrafts.length === 0 ? (
+              <EmptyState label="Tidak ada draft saat ini" />
+            ) : (
+              <div className="sa-draft-list">
+                {recentDrafts.map((k) => {
+                  const isSelected = currentSelection?.id === k.id;
                   return (
-                    <tr
+                    <DraftItem
                       key={k.id}
-                      style={{ borderBottom: "1px solid var(--border)" }}
-                    >
-                      {/* judul */}
-                      <td style={tdStyle}>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            maxWidth: 260,
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {k.judul}
-                        </div>
-                      </td>
+                      konten={k}
+                      isSelected={isSelected}
+                      onClick={() => setSelectedKonten(k)}
+                      isDeleting={deleting === k.id}
+                      onEdit={(e) => {
+                        e.stopPropagation();
+                        navigate(`/superadmin/konten-desain?edit=${k.id}`);
+                      }}
+                      onDelete={(e) => {
+                        e.stopPropagation();
+                        handleDelete(k.id);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-                      {/* tipe badge */}
-                      <td style={tdStyle}>
-                        <span
+          {/* ── KONTEN TERBIT (table) ── */}
+          <div
+            className="card glass-panel sa-section-card"
+            style={{ padding: 26, borderRadius: 28 }}
+          >
+            {/* header */}
+            <div
+              className="flex items-center justify-between mb-5 sa-mobile-stack"
+              style={{ gap: 18, alignItems: "flex-start" }}
+            >
+              <div className="flex items-center gap-3" style={{ flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 16,
+                    background: "var(--accent-glow)",
+                    color: "var(--secondary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Newspaper size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+                    Konten Terbit
+                  </h3>
+                  <p className="text-muted" style={{ fontSize: 13 }}>
+                    Semua konten yang sudah dipublikasikan
+                  </p>
+                </div>
+              </div>
+
+              {/* filter by tipe */}
+              <select
+                value={filterTipe}
+                onChange={(e) => setFilterTipe(e.target.value)}
+                style={{
+                  height: 40,
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--card-bg)",
+                  padding: "0 14px",
+                  outline: "none",
+                  fontSize: 14,
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Semua Tipe</option>
+                {Object.entries(TIPE_CONFIG).map(([val, cfg]) => (
+                  <option key={val} value={val}>
+                    {cfg.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* table */}
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  minWidth: 720,
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "var(--bg-light)" }}>
+                    {["Judul", "Tipe", "Penulis", "Tanggal", "Status", "Aksi"].map(
+                      (h) => (
+                        <th
+                          key={h}
                           style={{
-                            padding: "4px 10px",
-                            borderRadius: 999,
-                            background: tipe.bg,
-                            color: tipe.color,
-                            fontSize: 12,
+                            textAlign: "left",
+                            padding: "13px 16px",
+                            fontSize: 13,
                             fontWeight: 700,
+                            color: "var(--text-main)",
                           }}
                         >
-                          {tipe.label}
-                        </span>
-                      </td>
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
 
-                      {/* penulis */}
-                      <td style={tdStyle}>{k.author?.name || "-"}</td>
-
-                      {/* tanggal */}
-                      <td style={tdStyle}>
-                        {formatDate(k.published_at || k.created_at)}
-                      </td>
-
-                      {/* status */}
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            padding: "4px 10px",
-                            borderRadius: 999,
-                            background: "#DCFCE7",
-                            color: "#16A34A",
-                            fontSize: 12,
-                            fontWeight: 700,
-                          }}
-                        >
-                          Terbit
-                        </span>
-                      </td>
-
-                      {/* aksi */}
-                      <td style={tdStyle}>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 6,
-                            flexWrap: "nowrap",
-                          }}
-                        >
-                          <ActionBtn
-                            title="Preview"
-                            icon={<Eye size={13} />}
-                            bg="#F0FDF4"
-                            color="#16A34A"
-                            onClick={() =>
-                              navigate(`/superadmin/preview/${k.id}`)
-                            }
-                          />
-                          <ActionBtn
-                            title="Edit"
-                            icon={<Pencil size={13} />}
-                            bg="#EFF6FF"
-                            color="#1D4ED8"
-                            onClick={() =>
-                              navigate(`/superadmin/konten-desain?edit=${k.id}`)
-                            }
-                          />
-                          <ActionBtn
-                            title={k.is_published ? "Unpublish" : "Publish"}
-                            icon={
-                              k.is_published ? (
-                                <EyeOff size={13} />
-                              ) : (
-                                <Globe size={13} />
-                              )
-                            }
-                            bg="#F0FDF4"
-                            color="#16A34A"
-                            disabled={toggling === k.id}
-                            onClick={() => handleToggle(k.id)}
-                          />
-                          <ActionBtn
-                            title="Hapus"
-                            icon={<Trash2 size={13} />}
-                            bg="#FEF2F2"
-                            color="#DC2626"
-                            disabled={deleting === k.id}
-                            onClick={() => handleDelete(k.id)}
-                          />
-                        </div>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 40, textAlign: "center" }}>
+                        <Spinner />
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : published.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{
+                          padding: 32,
+                          textAlign: "center",
+                          color: "var(--text-muted)",
+                          fontSize: 14,
+                        }}
+                      >
+                        Belum ada konten yang diterbitkan
+                      </td>
+                    </tr>
+                  ) : (
+                    published.map((k) => {
+                      const tipe = TIPE_CONFIG[k.tipe] || {
+                        label: k.tipe || "-",
+                        bg: "#F3F4F6",
+                        color: "#6B7280",
+                      };
+                      const isSelected = currentSelection?.id === k.id;
+                      return (
+                        <tr
+                          key={k.id}
+                          onClick={() => setSelectedKonten(k)}
+                          style={{ 
+                            borderBottom: "1px solid var(--border)",
+                            background: isSelected ? "var(--accent-glow, rgba(15, 110, 86, 0.05))" : "transparent",
+                            cursor: "pointer",
+                            transition: "background 0.2s"
+                          }}
+                        >
+                          {/* judul */}
+                          <td style={tdStyle}>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                maxWidth: 260,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {k.judul}
+                            </div>
+                          </td>
+
+                          {/* tipe badge */}
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: tipe.bg,
+                                color: tipe.color,
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {tipe.label}
+                            </span>
+                          </td>
+
+                          {/* penulis */}
+                          <td style={tdStyle}>{k.author?.name || "-"}</td>
+
+                          {/* tanggal */}
+                          <td style={tdStyle}>
+                            {formatDate(k.published_at || k.created_at)}
+                          </td>
+
+                          {/* status */}
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: "#DCFCE7",
+                                color: "#16A34A",
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              Terbit
+                            </span>
+                          </td>
+
+                          {/* aksi */}
+                          <td style={tdStyle}>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 6,
+                                flexWrap: "nowrap",
+                              }}
+                            >
+                              <ActionBtn
+                                title="Preview"
+                                icon={<Eye size={13} />}
+                                bg="#F0FDF4"
+                                color="#16A34A"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedKonten(k);
+                                }}
+                              />
+                              <ActionBtn
+                                title="Edit"
+                                icon={<Pencil size={13} />}
+                                bg="#EFF6FF"
+                                color="#1D4ED8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/superadmin/konten-desain?edit=${k.id}`);
+                                }}
+                              />
+                              <ActionBtn
+                                title={k.is_published ? "Unpublish" : "Publish"}
+                                icon={
+                                  k.is_published ? (
+                                    <EyeOff size={13} />
+                                  ) : (
+                                    <Globe size={13} />
+                                  )
+                                }
+                                bg="#F0FDF4"
+                                color="#16A34A"
+                                disabled={toggling === k.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggle(k.id);
+                                }}
+                              />
+                              <ActionBtn
+                                title="Hapus"
+                                icon={<Trash2 size={13} />}
+                                bg="#FEF2F2"
+                                color="#DC2626"
+                                disabled={deleting === k.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(k.id);
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: PREVIEW */}
+        <div className="preview-column">
+          <div className="card glass-panel sa-section-card" style={{ padding: 24, borderRadius: 24 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Preview Konten</h3>
+            
+            {currentSelection ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="news-card">
+                  {currentSelection.thumbnail_url ? (
+                    <img src={currentSelection.thumbnail_url} alt={currentSelection.judul} className="news-img" />
+                  ) : (
+                    <div 
+                      className="news-img" 
+                      style={{ 
+                        background: "linear-gradient(135deg, var(--primary), var(--secondary))", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "center", 
+                        color: "white",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        height: "180px"
+                      }}
+                    >
+                      Belum ada Cover
+                    </div>
+                  )}
+                  
+                  <div className="news-content">
+                    <span className={`news-tag ${getTagClassAndStyle(currentSelection.tipe).className}`} style={getTagClassAndStyle(currentSelection.tipe).style}>
+                      {TIPE_CONFIG[currentSelection.tipe]?.label || currentSelection.tipe}
+                    </span>
+                    
+                    <h5 className="news-title" style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--primary)", marginBottom: 8, lineHeight: 1.4 }}>
+                      {currentSelection.judul}
+                    </h5>
+                    
+                    <p className="news-excerpt">
+                      {getExcerpt(currentSelection.isi)}
+                    </p>
+                    
+                    <div className="news-meta">
+                      <span>{formatDate(currentSelection.created_at)}</span>
+                      <span>Oleh: {currentSelection.author?.name || "Admin"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Link
+                  to={`/superadmin/preview/${currentSelection.id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    background: "var(--bg-light)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-main)",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    fontSize: 14,
+                    transition: '0.2s'
+                  }}
+                  className="preview-detail-btn"
+                >
+                  <Eye size={16} /> Lihat Detail Halaman
+                </Link>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)', fontSize: 14 }}>
+                Pilih artikel untuk melihat preview
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -570,14 +823,17 @@ function StatCard({ icon, title, value, bg, color }) {
   );
 }
 
-function DraftItem({ konten, onEdit, onDelete, isDeleting }) {
+function DraftItem({ konten, onEdit, onDelete, isDeleting, isSelected, onClick }) {
   return (
     <div
+      onClick={onClick}
       style={{
         border: "1px solid var(--border)",
         borderRadius: 22,
         padding: 20,
-        background: "var(--card-bg)",
+        background: isSelected ? "var(--accent-glow, rgba(15, 110, 86, 0.05))" : "var(--card-bg)",
+        cursor: "pointer",
+        transition: "background 0.2s"
       }}
     >
       <div

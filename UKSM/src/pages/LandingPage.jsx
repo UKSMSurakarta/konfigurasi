@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import {
   ShieldCheck,
   ArrowRight,
@@ -11,8 +12,26 @@ import {
   Newspaper,
   Building,
 } from "lucide-react";
+import { getPublicBeritaApi } from "../api/public";
+import NewsCard from "../components/common/NewsCard";
 
 export default function LandingPage() {
+  const [beritaTerbaru, setBeritaTerbaru] = useState([]);
+
+  useEffect(() => {
+    getPublicBeritaApi({ limit: 3 })
+      .then(res => {
+        if (res?.data?.data && Array.isArray(res.data.data)) {
+          setBeritaTerbaru(res.data.data.slice(0, 3));
+        } else if (res?.data && Array.isArray(res.data)) {
+          setBeritaTerbaru(res.data.slice(0, 3));
+        } else if (Array.isArray(res)) {
+          setBeritaTerbaru(res.slice(0, 3));
+        }
+      })
+      .catch(err => console.error("Failed to load berita:", err));
+  }, []);
+
   return (
     <div className="landing-page">
 
@@ -724,88 +743,21 @@ export default function LandingPage() {
           </div>
 
           <div className="card-grid">
-
-            <div className="news-card">
-
-              <img
-                src="https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?q=80&w=1200&auto=format&fit=crop"
-                alt=""
-                className="news-img"
-              />
-
-              <div className="news-content">
-
-                <span className="news-tag tag-success">
-                  Kegiatan UKS
-                </span>
-
-                <h5>
-                  Sosialisasi PHBS di 25 Sekolah Dasar
-                </h5>
-
-                <p>
-                  Program edukasi hidup bersih dan sehat
-                  dilaksanakan bersama tenaga kesehatan daerah.
-                </p>
-
+            {beritaTerbaru.length > 0 ? (
+              beritaTerbaru.map((item, idx) => (
+                <NewsCard key={idx} konten={item} isPublic={true} />
+              ))
+            ) : (
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 0", color: "#6c757d" }}>
+                Belum ada berita terbaru saat ini.
               </div>
+            )}
+          </div>
 
-            </div>
-
-            <div className="news-card">
-
-              <img
-                src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop"
-                alt=""
-                className="news-img"
-              />
-
-              <div className="news-content">
-
-                <span className="news-tag tag-primary">
-                  Prestasi
-                </span>
-
-                <h5>
-                  SMPN 3 Sukamaju Raih UKS Paripurna
-                </h5>
-
-                <p>
-                  Sekolah berhasil meraih penghargaan
-                  strata tertinggi tingkat kabupaten.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="news-card">
-
-              <img
-                src="https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=1200&auto=format&fit=crop"
-                alt=""
-                className="news-img"
-              />
-
-              <div className="news-content">
-
-                <span className="news-tag tag-warning">
-                  Edukasi
-                </span>
-
-                <h5>
-                  Pentingnya Gizi Seimbang Bagi Pelajar
-                </h5>
-
-                <p>
-                  Artikel edukasi kesehatan untuk meningkatkan
-                  kualitas hidup siswa.
-                </p>
-
-              </div>
-
-            </div>
-
+          <div style={{ textAlign: "center", marginTop: "50px" }}>
+            <Link to="/semua-artikel" className="btn-outline">
+              Show More <ArrowRight size={18} />
+            </Link>
           </div>
 
         </div>
