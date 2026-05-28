@@ -691,7 +691,7 @@ export default function LandingPage() {
 
               <p>
                 Pemantauan strata UKS dilakukan secara digital mulai
-                dari tingkat Minimal hingga Paripurna.
+                dari tingkat Dasar hingga Paripurna.
               </p>
 
             </div>

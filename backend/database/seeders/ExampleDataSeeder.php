@@ -190,7 +190,7 @@ class ExampleDataSeeder extends Seeder
         // 4. Levels & Questions Definition
         $levelDefinitions = [
             [
-                'nama' => 'Level 1: Strata Minimal',
+                'nama' => 'Level 1: Strata Dasar',
                 'urutan' => 1,
                 'deskripsi' => 'Fokus pada standar prasarana minimal UKS dan pelayanan kesehatan dasar siswa.',
                 'pertanyaans' => [

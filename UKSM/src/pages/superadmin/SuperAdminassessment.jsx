@@ -45,7 +45,7 @@ const LEVEL_COLORS = [
 ];
 
 const PREDIKAT_LIST = [
-  { key: "minimal", label: "Minimal", deskripsi: "Memenuhi syarat minimal", color: "#6B7280", bg: "#F3F4F6" },
+  { key: "minimal", label: "Dasar", deskripsi: "Memenuhi syarat dasar", color: "#6B7280", bg: "#F3F4F6" },
   { key: "standar", label: "Standar", deskripsi: "Memenuhi standar dasar", color: "#3B82F6", bg: "#DBEAFE" },
   { key: "optimal", label: "Optimal", deskripsi: "Melampaui standar", color: "#F59E0B", bg: "#FEF3C7" },
   { key: "paripurna", label: "Paripurna", deskripsi: "Tingkat tertinggi", color: "#16A34A", bg: "#DCFCE7" },

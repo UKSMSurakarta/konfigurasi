@@ -16,8 +16,8 @@ import { getVerifikasiListApi, verifikasiSekolahApi } from "../../api/admin";
 const PREDIKAT_LIST = [
   {
     key: "minimal",
-    label: "Minimal",
-    deskripsi: "Memenuhi syarat minimal",
+    label: "Dasar",
+    deskripsi: "Memenuhi syarat dasar",
     color: "#6B7280",
     bg: "#F3F4F6",
   },

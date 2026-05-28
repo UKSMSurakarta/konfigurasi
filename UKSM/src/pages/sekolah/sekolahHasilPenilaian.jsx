@@ -80,6 +80,7 @@ export default function SekolahHasilPenilaian() {
   const predLabel = predikat.charAt(0).toUpperCase() + predikat.slice(1);
   const predColors = {
     minimal: { bg: "#F3F4F6", color: "#6B7280" },
+    dasar: { bg: "#F3F4F6", color: "#6B7280" },
     standar: { bg: "#DBEAFE", color: "#3B82F6" },
     optimal: { bg: "#FEF3C7", color: "#F59E0B" },
     paripurna: { bg: "#DCFCE7", color: "#16A34A" }
