@@ -5,20 +5,20 @@ import { ShieldCheck, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react"
 
 const ROLE_REDIRECT = {
     superadmin: "/superadmin/dashboard",
-    admin:      "/admin/dashboard",
-    sekolah:    "/sekolah/dashboard",
-    konten:     "/konten/dashboard",
-    user:       "/konten/dashboard",
+    admin: "/admin/dashboard",
+    sekolah: "/sekolah/dashboard",
+    konten: "/konten/dashboard",
+    user: "/konten/dashboard",
 };
 
 export default function LoginPage() {
     const { login, user, loading } = useAuth();
     const navigate = useNavigate();
 
-    const [email, setEmail]           = useState("");
-    const [password, setPassword]     = useState("");
-    const [showPass, setShowPass]     = useState(false);
-    const [error, setError]           = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     // Jika sudah login, redirect otomatis
@@ -76,12 +76,42 @@ export default function LoginPage() {
     }
 
     const floatingLights = [
-        { width: 420, height: 420, color: "#60A5FA", top: "-120px",  left: "-150px",  duration: "18s" },
+        { width: 420, height: 420, color: "#60A5FA", top: "-120px", left: "-150px", duration: "18s" },
         { width: 520, height: 520, color: "#34D399", bottom: "-220px", right: "-180px", duration: "24s" },
-        { width: 340, height: 340, color: "#A78BFA", top: "40%",     left: "60%",     duration: "16s" },
+        { width: 340, height: 340, color: "#A78BFA", top: "40%", left: "60%", duration: "16s" },
     ];
 
-    if (loading) return null;
+    if (loading) {
+        return (
+            <div style={{
+                minHeight: "100vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#f8fafb",
+            }}>
+                <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "12px",
+                }}>
+                    <div style={{
+                        width: "42px",
+                        height: "42px",
+                        border: "4px solid rgba(15, 110, 86, 0.22)",
+                        borderTop: "4px solid #0F6E56",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                    }} />
+                    <span style={{ color: "#334155", fontSize: "15px", fontWeight: 600 }}>
+                        Memuat halaman login...
+                    </span>
+                </div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
 
     return (
         <div style={{
