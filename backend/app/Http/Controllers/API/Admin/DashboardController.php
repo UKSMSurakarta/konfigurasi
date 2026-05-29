@@ -81,7 +81,7 @@ class DashboardController extends Controller
 
         // 4. Rekap Predikat (Strata)
         $predikatCounts = [
-            'Strata Minimal' => 0,
+            'Strata Dasar' => 0,
             'Strata Standar' => 0,
             'Strata Optimal' => 0,
             'Strata Paripurna' => 0
@@ -102,7 +102,7 @@ class DashboardController extends Controller
                 }
 
                 if ($highestVerifiedUrutan === 1) {
-                    $predikatCounts['Strata Minimal']++;
+                    $predikatCounts['Strata Dasar']++;
                 } elseif ($highestVerifiedUrutan === 2) {
                     $predikatCounts['Strata Standar']++;
                 } elseif ($highestVerifiedUrutan === 3) {
@@ -114,7 +114,7 @@ class DashboardController extends Controller
         }
 
         $rekapPredikat = [
-            ['label' => 'Strata Minimal', 'jumlah' => $predikatCounts['Strata Minimal'], 'color' => '#3B82F6', 'bg' => '#EFF6FF'],
+            ['label' => 'Strata Dasar', 'jumlah' => $predikatCounts['Strata Dasar'], 'color' => '#3B82F6', 'bg' => '#EFF6FF'],
             ['label' => 'Strata Standar', 'jumlah' => $predikatCounts['Strata Standar'], 'color' => '#10B981', 'bg' => '#ECFDF5'],
             ['label' => 'Strata Optimal', 'jumlah' => $predikatCounts['Strata Optimal'], 'color' => '#F59E0B', 'bg' => '#FEF3C7'],
             ['label' => 'Strata Paripurna', 'jumlah' => $predikatCounts['Strata Paripurna'], 'color' => '#8B5CF6', 'bg' => '#F5F3FF'],

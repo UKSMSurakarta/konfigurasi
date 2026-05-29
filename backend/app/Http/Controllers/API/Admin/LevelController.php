@@ -15,7 +15,14 @@ class LevelController extends Controller
      */
     public function index()
     {
-        $levels = Level::with(['pertanyaans' => function($q) {
+        $activePeriod = \App\Models\AssessmentPeriod::where('is_active', true)->first();
+
+        $query = Level::query();
+        if ($activePeriod) {
+            $query->where('period_id', $activePeriod->id);
+        }
+
+        $levels = $query->with(['pertanyaans' => function($q) {
             $q->orderBy('urutan');
         }])->withCount('pertanyaans')->orderBy('urutan')->get();
 
