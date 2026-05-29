@@ -17,6 +17,17 @@ class AssessmentService
     }
 
     /**
+     * Check if the deadline for the active period has passed.
+     */
+    public function isDeadlinePassed()
+    {
+        $period = $this->getActivePeriod();
+        if (!$period) return false;
+
+        return now()->isAfter($period->tanggal_selesai->endOfDay());
+    }
+
+    /**
      * Determine the status of a level for a specific school.
      */
     public function getLevelStatus($level, $sekolahId, $periodId)

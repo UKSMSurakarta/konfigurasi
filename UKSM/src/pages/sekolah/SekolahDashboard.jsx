@@ -21,6 +21,20 @@ export default function SekolahDashboard() {
         ]).then(([levelsRes, notifRes]) => {
             const lvList = levelsRes.data?.data ?? levelsRes.data ?? [];
             setLevels(Array.isArray(lvList) ? lvList : []);
+
+            // Extract period info from levelsRes.data.period
+            const periodData = levelsRes.data?.period;
+            if (periodData) {
+                // Format: "Hingga 31/12/2025"
+                const date = new Date(periodData.tanggal_selesai);
+                const formattedDate = date.toLocaleDateString("id-ID", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric"
+                });
+                setPeriode(`Hingga ${formattedDate}`);
+            }
+
             const notifList = notifRes.data?.data ?? notifRes.data ?? [];
             // Tampilkan notif sebagai pengumuman
             setPengumuman(Array.isArray(notifList) ? notifList.slice(0, 3) : []);

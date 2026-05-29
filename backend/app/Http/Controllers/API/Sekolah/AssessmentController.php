@@ -66,6 +66,13 @@ class AssessmentController extends Controller
             "success" => true,
             "message" => "Daftar level berhasil diambil.",
             "data" => $data,
+            "period" => [
+                "id" => $period->id,
+                "nama" => $period->nama,
+                "tanggal_mulai" => $period->tanggal_mulai->toDateString(),
+                "tanggal_selesai" => $period->tanggal_selesai->toDateString(),
+                "is_deadline_passed" => $this->service->isDeadlinePassed(),
+            ]
         ]);
     }
 
@@ -130,6 +137,17 @@ class AssessmentController extends Controller
                     "success" => false,
                     "message" =>
                         "Level ini sudah diverifikasi oleh admin dan tidak dapat diubah.",
+                ],
+                403,
+            );
+        }
+
+        // Cek deadline
+        if ($this->service->isDeadlinePassed()) {
+            return response()->json(
+                [
+                    "success" => false,
+                    "message" => "Batas waktu assessment telah berakhir (" . $period->tanggal_selesai->format('d/m/Y') . "). Anda tidak dapat lagi menyimpan jawaban.",
                 ],
                 403,
             );
@@ -270,6 +288,17 @@ class AssessmentController extends Controller
                 [
                     "success" => false,
                     "message" => "Level sudah diverifikasi oleh admin.",
+                ],
+                403,
+            );
+        }
+
+        // Cek deadline
+        if ($this->service->isDeadlinePassed()) {
+            return response()->json(
+                [
+                    "success" => false,
+                    "message" => "Batas waktu assessment telah berakhir (" . $period->tanggal_selesai->format('d/m/Y') . "). Anda tidak dapat lagi mensubmit level.",
                 ],
                 403,
             );

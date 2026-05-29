@@ -18,6 +18,7 @@ export default function SekolahAssessment() {
     const [openLevel, setOpenLevel] = useState(null);
     const [pertanyaan, setPertanyaan] = useState({});
     const [jawaban, setJawaban] = useState({});
+    const [periodInfo, setPeriodInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadingPert, setLoadingPert] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -35,6 +36,12 @@ export default function SekolahAssessment() {
                 // Urutkan berdasarkan field urutan agar sesuai dengan pengaturan SuperAdmin
                 const list = (Array.isArray(raw) ? raw : []).slice().sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
                 setLevels(list);
+
+                // Set period info
+                if (res.data?.period) {
+                    setPeriodInfo(res.data.period);
+                }
+
                 // Buka level pertama yang belum disubmit secara permanen
                 const firstOpen = list.find(l => l.status !== "submitted" && l.status !== "verified" && l.status !== "final");
                 if (firstOpen) setOpenLevel(firstOpen.id);
@@ -292,7 +299,8 @@ export default function SekolahAssessment() {
 
                     const isOpen = openLevel === level.id;
                     const editing = isEditing(level.id);
-                    const isReadOnly = isFinalOrVerified && !editing;
+                    const isDeadlinePassed = !!periodInfo?.is_deadline_passed;
+                    const isReadOnly = (isFinalOrVerified && !editing) || isDeadlinePassed;
                     const complete = isTierComplete(level.id);
                     const perts = pertanyaan[level.id] || [];
 
@@ -354,6 +362,11 @@ export default function SekolahAssessment() {
                                     {isReadOnly && perts.length > 0 && (
                                         <div style={{ padding: "12px 22px", background: "#F0FDF4", borderBottom: "1px solid var(--border)", fontSize: 13, color: "#15803D", display: "flex", alignItems: "center", gap: 8 }}>
                                             <CheckCircle size={14} /> Jawaban sudah disubmit. Klik tombol <strong>Revisi</strong> untuk mengubah.
+                                        </div>
+                                    )}
+                                    {!!periodInfo?.is_deadline_passed && (
+                                        <div style={{ padding: "12px 22px", background: "#FEF2F2", borderBottom: "1px solid var(--border)", fontSize: 13, color: "#991B1B", display: "flex", alignItems: "center", gap: 8 }}>
+                                            <Activity size={14} /> Batas waktu assessment telah berakhir pada {new Date(periodInfo.tanggal_selesai).toLocaleDateString('id-ID')}. Anda hanya dapat melihat jawaban.
                                         </div>
                                     )}
                                     {loadingPert && perts.length === 0 && (
