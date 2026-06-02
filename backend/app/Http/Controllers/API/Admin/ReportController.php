@@ -32,9 +32,33 @@ class ReportController extends Controller
         }
         if ($request->jenjang) $query->where('jenjang', $request->jenjang);
 
-        $sekolahs = $query->get()->map(function($s) {
+        $periodId = $request->period_id ?? AssessmentPeriod::where('is_active', true)->value('id');
+        $levels = Level::where('period_id', $periodId)->get();
+        $totalQuestions = \App\Models\Pertanyaan::whereIn('level_id', $levels->pluck('id'))->count();
+
+        $sekolahs = $query->get()->map(function($s) use ($periodId, $levels, $totalQuestions) {
             $totalSkor = $s->levelSubmissions->sum('total_skor');
             $levelSelesai = $s->levelSubmissions->count();
+            
+            $answeredQuestions = \App\Models\Jawaban::where('sekolah_id', $s->id)
+                ->where('period_id', $periodId)
+                ->count();
+                
+            $progress = $totalQuestions > 0 ? round(($answeredQuestions / $totalQuestions) * 100) : 0;
+            
+            $totalLevels = $levels->count();
+            $completedLevels = $s->levelSubmissions->whereIn('status', ['final', 'verified'])->count();
+            $verifiedLevels = $s->levelSubmissions->where('status', 'verified')->count();
+            
+            $status = "Belum Selesai";
+            if ($totalLevels > 0 && $verifiedLevels === $totalLevels) {
+                $status = "Terverifikasi";
+            } elseif ($totalLevels > 0 && $completedLevels === $totalLevels) {
+                $status = "Menunggu Verifikasi";
+            } elseif ($answeredQuestions > 0) {
+                $status = "Proses";
+            }
+
             return [
                 'id' => $s->id,
                 'nama' => $s->nama,
@@ -42,6 +66,11 @@ class ReportController extends Controller
                 'opd' => $s->opd ? $s->opd->nama : '-',
                 'level_selesai' => $levelSelesai,
                 'total_skor' => $totalSkor,
+                'status' => $status,
+                'progress' => $progress,
+                'total_pertanyaan' => $totalQuestions,
+                'answered_pertanyaan' => $answeredQuestions,
+                'predikat' => $s->predikat ?? '-',
             ];
         })->sortByDesc('total_skor')->values();
 
