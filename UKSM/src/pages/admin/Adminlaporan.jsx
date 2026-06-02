@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import {
     FileSpreadsheet, Download, Eye, School,
     CheckCircle2, Clock3, AlertTriangle, PieChart, BarChart3,
@@ -24,13 +25,38 @@ export default function AdminAnalisisLaporan() {
         }).catch(console.error).finally(() => setLoading(false));
     }, []);
 
+    const getProgressPct = (s) => {
+        const total = s.total_pertanyaan ?? s.total_soal ?? s.jumlah_soal ?? 0;
+        const selesai = s.answered_pertanyaan ?? s.soal_terjawab ?? s.total_jawaban ?? s.jawaban_selesai ?? s.verified_pertanyaan ?? 0;
+        if (total > 0) {
+            return Math.round((selesai / total) * 100);
+        }
+        return s.progress ?? s.progress_persen ?? s.persentase ?? s.persen ?? s.total_progress ?? 0;
+    };
+
+    const handleExport = () => {
+        const exportData = schools.map((s, index) => ({
+            "No": index + 1,
+            "Nama Sekolah": s.nama || s.name || "-",
+            "Status": s.status || "-",
+            "Progress (%)": getProgressPct(s),
+            "Predikat": s.predikat || "-",
+            "Verifikasi": s.verifikasi_status || (s.status === "Terverifikasi" ? "Terverifikasi" : "Belum")
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan_Sekolah");
+        XLSX.writeFile(workbook, "Laporan_Sekolah_Binaan.xlsx");
+    };
+
     if (loading) return <LoadingSpinner />;
 
     const dashStats = data?.stats || {};
     const total    = dashStats.total_sekolah ?? schools.length;
-    const selesai  = dashStats.terverifikasi  ?? 0;
-    const menunggu = dashStats.menunggu_verifikasi ?? 0;
-    const belum    = dashStats.belum_selesai  ?? 0;
+    const selesai  = dashStats.terverifikasi ?? schools.filter(s => s.status === "Terverifikasi" || s.status === "Selesai").length;
+    const menunggu = dashStats.menunggu_verifikasi ?? schools.filter(s => s.status === "Menunggu Verifikasi").length;
+    const belum    = dashStats.belum_selesai ?? schools.filter(s => s.status === "Belum Selesai" || s.status === "Proses").length;
     const predikat = data?.rekap_predikat || [];
     const persen   = total > 0 ? Math.round((selesai / total) * 100) : 0;
 
@@ -46,7 +72,29 @@ export default function AdminAnalisisLaporan() {
                         Monitoring data assessment, progres verifikasi, serta laporan sekolah binaan.
                     </p>
                 </div>
-                <div className="badge badge-glow" style={{ whiteSpace: "nowrap" }}>{data?.periode || "Periode Aktif"}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
+                    <div className="badge badge-glow" style={{ whiteSpace: "nowrap" }}>{data?.periode || "Periode Aktif"}</div>
+                    <button
+                        onClick={handleExport}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            background: "linear-gradient(135deg,var(--primary),var(--secondary))",
+                            color: "white",
+                            border: "none",
+                            padding: "10px 20px",
+                            borderRadius: "14px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        <Download size={18} />
+                        Ekspor Laporan
+                    </button>
+                </div>
             </div>
 
             {/* STATISTIK */}
@@ -147,7 +195,7 @@ export default function AdminAnalisisLaporan() {
                                 <tr key={s.id}>
                                     <td style={tdStyle}>{s.nama || s.name}</td>
                                     <td style={tdStyle}>{s.status || "–"}</td>
-                                    <td style={tdStyle}>{s.progress ?? s.progress_persen ?? 0}%</td>
+                                    <td style={tdStyle}>{getProgressPct(s)}%</td>
                                     <td style={tdStyle}>{s.predikat || "–"}</td>
                                     <td style={tdStyle}>{s.verifikasi_status || (s.status === "Terverifikasi" ? "Terverifikasi" : "Belum")}</td>
                                 </tr>

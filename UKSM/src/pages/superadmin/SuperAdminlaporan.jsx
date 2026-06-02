@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import {
   FileBarChart,
   Download,
@@ -65,6 +66,27 @@ export default function SuperAdminlaporan() {
   /* rekap_opd comes from the dashboard API */
   const opdList = stats.rekap_opd ?? stats.opd_progress ?? [];
 
+  const handleExport = () => {
+    const exportData = opdList.map((row, index) => {
+      const pct = row.persentase ?? row.persen ?? 0;
+      const total = row.total_sekolah ?? row.totalSekolah ?? row.total ?? 0;
+      const selesai = row.selesai ?? 0;
+
+      return {
+        "No": index + 1,
+        "Wilayah / OPD": row.nama ?? row.name ?? "-",
+        "Total Sekolah": total,
+        "Sudah Selesai": selesai,
+        "Progress (%)": pct
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan_Nasional");
+    XLSX.writeFile(workbook, "Laporan_Nasional_UKS.xlsx");
+  };
+
   /* ── Render helpers ─────────────────────────────────── */
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -108,8 +130,9 @@ export default function SuperAdminlaporan() {
           </p>
         </div>
 
-        {/* EXPORT BUTTON (UI only) */}
+        {/* EXPORT BUTTON */}
         <button
+          onClick={handleExport}
           style={{
             display: "inline-flex",
             alignItems: "center",
