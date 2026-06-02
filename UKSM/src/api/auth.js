@@ -1,8 +1,8 @@
 import axiosInstance from './axios';
 
 // Auth
-export const loginApi = (email, password) =>
-    axiosInstance.post('/auth/login', { email, password }).then(r => r.data);
+export const loginApi = (email, password, turnstileToken) =>
+    axiosInstance.post('/auth/login', { email, password, turnstile_token: turnstileToken }).then(r => r.data);
 
 export const getMeApi = () =>
     axiosInstance.get('/auth/me').then(r => r.data);

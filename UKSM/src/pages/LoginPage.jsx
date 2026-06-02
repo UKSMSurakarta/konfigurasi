@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Turnstile } from "@marsidev/react-turnstile";
 
 const ROLE_REDIRECT = {
     superadmin: "/superadmin/dashboard",
@@ -20,6 +21,7 @@ export default function LoginPage() {
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState("");
 
     // Jika sudah login, redirect otomatis
     useEffect(() => {
@@ -59,10 +61,14 @@ export default function LoginPage() {
 
     async function handleLogin(e) {
         e.preventDefault();
+        if (!turnstileToken) {
+            setError("Silakan verifikasi bahwa Anda bukan robot.");
+            return;
+        }
         setError("");
         setSubmitting(true);
         try {
-            const result = await login(email, password);
+            const result = await login(email, password, turnstileToken);
             if (!result.ok) {
                 setError(result.message || "Email atau password salah.");
             } else {
@@ -254,18 +260,31 @@ export default function LoginPage() {
                         </div>
                     )}
 
+                    {/* Cloudflare Turnstile Widget */}
+                    <div style={{ marginBottom: "22px", display: "flex", justifyContent: "center" }}>
+                        <Turnstile 
+                            siteKey="1x00000000000000000000AA" 
+                            onSuccess={(token) => setTurnstileToken(token)}
+                            onError={() => setError("Verifikasi Turnstile gagal. Silakan muat ulang halaman.")}
+                            options={{
+                                size: "normal",
+                                theme: "light"
+                            }}
+                        />
+                    </div>
+
                     {/* Submit */}
                     <button
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || !turnstileToken}
                         style={{
                             width: "100%", border: "none", borderRadius: "14px",
                             padding: "14px",
-                            background: submitting
+                            background: (submitting || !turnstileToken)
                                 ? "#6b7280"
                                 : "linear-gradient(135deg, #042C53, #0F6E56)",
                             color: "#fff", fontWeight: 700, fontSize: "15px",
-                            cursor: submitting ? "not-allowed" : "pointer",
+                            cursor: (submitting || !turnstileToken) ? "not-allowed" : "pointer",
                             boxShadow: "0 10px 20px rgba(4,44,83,0.15)",
                             transition: "0.3s",
                             display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
@@ -281,7 +300,7 @@ export default function LoginPage() {
                                 }} />
                                 Memproses...
                             </>
-                        ) : "Masuk ke Dashboard"}
+                        ) : !turnstileToken ? "Selesaikan Verifikasi" : "Masuk ke Sistem"}
                     </button>
                 </form>
 

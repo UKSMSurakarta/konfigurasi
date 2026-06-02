@@ -35,9 +35,9 @@ export function AuthProvider({ children }) {
             .finally(() => setLoading(false));
     }, []);
 
-    async function login(email, password) {
+    async function login(email, password, turnstileToken) {
         try {
-            const res = await loginApi(email, password);
+            const res = await loginApi(email, password, turnstileToken);
             if (res.success) {
                 const { access_token, user: userData } = res.data;
                 localStorage.setItem("uksm_token", access_token);
