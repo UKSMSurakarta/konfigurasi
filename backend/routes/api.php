@@ -19,7 +19,6 @@ Route::prefix("v1")->group(function () {
     // Auth Routes
     Route::prefix("auth")->group(function () {
         Route::post("/login", [AuthController::class, "login"]);
-        Route::post("/register", [AuthController::class, "register"]); // Optional, depends on your needs
 
         Route::middleware("auth:sanctum")->group(function () {
             Route::post("/logout", [AuthController::class, "logout"]);
@@ -155,8 +154,8 @@ Route::prefix("v1")->group(function () {
                     "index",
                 ]);
 
-                // Reporting
-                Route::prefix("laporan")->group(function () {
+                // Reporting (rate limited to prevent abuse)
+                Route::prefix("laporan")->middleware('throttle:30,1')->group(function () {
                     Route::get("/rekap-sekolah", [
                         \App\Http\Controllers\API\Admin\ReportController::class,
                         "rekapSekolah",

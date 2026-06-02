@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -25,7 +26,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $query->paginate($request->limit ?? 10)
+            'data' => $query->paginate(min(intval($request->limit ?? 10), 100))
         ]);
     }
 
@@ -87,7 +88,16 @@ class UserController extends Controller
             'sekolah_id' => 'nullable|exists:sekolahs,id',
         ]);
 
-        $user->update($request->all());
+        $user->update($request->only(['name', 'email', 'role', 'opd_id', 'sekolah_id']));
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'UPDATE_USER',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'details' => "User '{$user->name}' diperbarui.",
+            'ip_address' => request()->ip(),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -112,6 +122,16 @@ class UserController extends Controller
     public function destroy($id)
     {
         $user = User::findOrFail($id);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'DELETE_USER',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'details' => "User '{$user->name}' (email: {$user->email}) dihapus.",
+            'ip_address' => request()->ip(),
+        ]);
+
         $user->delete();
 
         return response()->json([

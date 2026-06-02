@@ -7,9 +7,12 @@ use App\Models\Sekolah;
 use App\Models\User;
 use App\Models\Jawaban;
 use App\Models\LevelSubmission;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class SekolahController extends Controller
@@ -86,7 +89,7 @@ class SekolahController extends Controller
             $email =
                 strtolower(str_replace(" ", "", $validated["npsn"])) .
                 "@sekolah.uksm.local";
-            $password = "sekolah123"; // Password default
+            $password = Str::random(12); // Password acak yang kuat
 
             // Buat user untuk sekolah
             $user = User::create([
@@ -99,17 +102,27 @@ class SekolahController extends Controller
                 "is_active" => true,
             ]);
 
+            // Audit log
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'CREATE_SEKOLAH',
+                'auditable_type' => Sekolah::class,
+                'auditable_id' => $sekolah->id,
+                'details' => "Sekolah '{$validated['nama']}' (NPSN: {$validated['npsn']}) dibuat oleh admin.",
+                'ip_address' => request()->ip(),
+            ]);
+
             DB::commit();
 
             return response()->json(
                 [
                     "success" => true,
-                    "message" => "Sekolah berhasil dibuat",
+                    "message" => "Sekolah berhasil dibuat. Catat kredensial ini, tidak akan ditampilkan lagi.",
                     "data" => [
                         "sekolah" => $sekolah,
                         "user" => [
                             "email" => $email,
-                            "password" => $password, // Kirim password default untuk ditampilkan sekali
+                            "password" => $password, // Ditampilkan sekali saja
                         ],
                     ],
                 ],
@@ -117,10 +130,11 @@ class SekolahController extends Controller
             );
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Gagal membuat sekolah', ['error' => $e->getMessage()]);
             return response()->json(
                 [
                     "success" => false,
-                    "message" => "Gagal membuat sekolah: " . $e->getMessage(),
+                    "message" => "Gagal membuat sekolah. Silakan coba lagi.",
                 ],
                 500,
             );
@@ -243,11 +257,11 @@ class SekolahController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Gagal mengupdate sekolah', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(
                 [
                     "success" => false,
-                    "message" =>
-                        "Gagal mengupdate sekolah: " . $e->getMessage(),
+                    "message" => "Gagal mengupdate sekolah. Silakan coba lagi.",
                 ],
                 500,
             );
@@ -309,10 +323,11 @@ class SekolahController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Gagal menghapus sekolah', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(
                 [
                     "success" => false,
-                    "message" => "Gagal menghapus sekolah: " . $e->getMessage(),
+                    "message" => "Gagal menghapus sekolah. Silakan coba lagi.",
                 ],
                 500,
             );

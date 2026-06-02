@@ -20,7 +20,7 @@ class PublicController extends Controller
         $berita = Konten::where('tipe', 'berita')
             ->where('is_published', true)
             ->orderBy('published_at', 'desc')
-            ->paginate($request->limit ?? 6);
+            ->paginate(min(intval($request->limit ?? 6), 100));
 
         return KontenResource::collection($berita);
     }

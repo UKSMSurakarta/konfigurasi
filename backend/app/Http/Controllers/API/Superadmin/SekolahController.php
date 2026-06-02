@@ -23,7 +23,7 @@ class SekolahController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $query->paginate($request->limit ?? 10)
+            'data' => $query->paginate(min(intval($request->limit ?? 10), 100))
         ]);
     }
 
@@ -58,7 +58,7 @@ class SekolahController extends Controller
             'opd_id' => 'sometimes|exists:opds,id',
         ]);
 
-        $sekolah->update($request->all());
+        $sekolah->update($request->only(['nama', 'npsn', 'jenjang', 'opd_id', 'alamat', 'kepala_sekolah']));
 
         return response()->json([
             'success' => true,

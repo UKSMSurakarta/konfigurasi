@@ -8,6 +8,7 @@ use App\Models\Level;
 use App\Models\LevelSubmission;
 use App\Models\Jawaban;
 use App\Models\User;
+use App\Models\AuditLog;
 use App\Notifications\LevelVerifiedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,17 @@ class VerificationController extends Controller
      */
     public function verify(Request $request, $sekolahId, $levelId)
     {
+        // IDOR Protection: verify school belongs to admin's OPD
+        $user = auth()->user();
+        if ($user->role !== 'superadmin') {
+            $sekolah = Sekolah::where('id', $sekolahId)
+                ->where('opd_id', $user->opd_id)
+                ->first();
+            if (!$sekolah) {
+                return response()->json(['success' => false, 'message' => 'Sekolah tidak ditemukan.'], 403);
+            }
+        }
+
         $request->validate([
             "status" => "required|in:disetujui,ditolak",
             "catatan" => "nullable|string",
@@ -124,6 +136,16 @@ class VerificationController extends Controller
             }
         });
 
+        // Audit log
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'VERIFY_SUBMISSION',
+            'auditable_type' => LevelSubmission::class,
+            'auditable_id' => $submission->id,
+            'details' => "Verifikasi level {$levelId} sekolah {$sekolahId}: {$request->status}" . ($request->catatan ? " - {$request->catatan}" : ""),
+            'ip_address' => request()->ip(),
+        ]);
+
         return response()->json([
             "success" => true,
             "message" => "Verifikasi berhasil disimpan.",
@@ -135,7 +157,19 @@ class VerificationController extends Controller
      */
     public function showDetails($sekolahId)
     {
-        $sekolah = Sekolah::with("opd")->findOrFail($sekolahId);
+        // IDOR Protection: verify school belongs to admin's OPD
+        $user = auth()->user();
+        if ($user->role !== 'superadmin') {
+            $sekolah = Sekolah::where('id', $sekolahId)
+                ->where('opd_id', $user->opd_id)
+                ->with('opd')
+                ->first();
+            if (!$sekolah) {
+                return response()->json(['success' => false, 'message' => 'Sekolah tidak ditemukan.'], 403);
+            }
+        } else {
+            $sekolah = Sekolah::with("opd")->findOrFail($sekolahId);
+        }
         $period = $this->service->getActivePeriod();
         $periodId = $period ? $period->id : null;
 

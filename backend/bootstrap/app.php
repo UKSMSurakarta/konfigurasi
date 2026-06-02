@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Global CORS middleware – runs on every request
         $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
 
+        // Security Headers – runs on every response
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'cors' => \App\Http\Middleware\CorsMiddleware::class,

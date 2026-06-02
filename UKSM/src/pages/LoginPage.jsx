@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
@@ -22,6 +22,7 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState("");
+    const turnstileRef = useRef(null);
 
     // Jika sudah login, redirect otomatis
     useEffect(() => {
@@ -78,6 +79,11 @@ export default function LoginPage() {
             setError("Terjadi kesalahan koneksi. Pastikan server berjalan.");
         } finally {
             setSubmitting(false);
+            // Reset Turnstile setelah setiap percobaan login (M-07)
+            setTurnstileToken("");
+            if (turnstileRef.current) {
+                turnstileRef.current.reset();
+            }
         }
     }
 
@@ -263,6 +269,7 @@ export default function LoginPage() {
                     {/* Cloudflare Turnstile Widget */}
                     <div style={{ marginBottom: "22px", display: "flex", justifyContent: "center" }}>
                         <Turnstile 
+                            ref={turnstileRef}
                             siteKey="1x00000000000000000000AA" 
                             onSuccess={(token) => setTurnstileToken(token)}
                             onError={() => setError("Verifikasi Turnstile gagal. Silakan muat ulang halaman.")}

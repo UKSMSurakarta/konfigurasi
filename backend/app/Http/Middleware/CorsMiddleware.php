@@ -24,10 +24,8 @@ class CorsMiddleware
 
         if (in_array($origin, $allowedOrigins)) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
-        } else {
-            // Allow all origins in local development
-            $response->headers->set('Access-Control-Allow-Origin', '*');
         }
+        // Unknown origins are rejected — no CORS header set
 
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');

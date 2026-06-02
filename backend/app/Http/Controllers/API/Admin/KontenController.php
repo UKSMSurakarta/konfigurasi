@@ -12,6 +12,20 @@ use Illuminate\Support\Str;
 class KontenController extends Controller
 {
     /**
+     * Sanitize HTML from WYSIWYG editor to prevent Stored XSS.
+     */
+    private function sanitizeHtml(string $html): string
+    {
+        // Allow safe HTML tags from WYSIWYG, strip dangerous ones
+        $allowed = '<p><br><strong><b><em><i><u><ul><ol><li><h1><h2><h3><h4><h5><h6><a><img><table><thead><tbody><tr><th><td><blockquote><pre><code><span><div><hr><figure><figcaption>';
+        $clean = strip_tags($html, $allowed);
+        // Remove all event handlers (onclick, onerror, etc.)
+        $clean = preg_replace('/\s*on\w+\s*=\s*["\'][^"\']*["\']|\s*on\w+\s*=\s*\S+/i', '', $clean);
+        // Remove javascript: protocol from href/src
+        $clean = preg_replace('/\b(href|src)\s*=\s*["\']\s*javascript\s*:/i', '$1=""', $clean);
+        return $clean;
+    }
+    /**
      * List content with pagination and filters.
      */
     public function index(Request $request)
@@ -28,7 +42,7 @@ class KontenController extends Controller
 
         $kontens = $query
             ->orderBy("created_at", "desc")
-            ->paginate($request->limit ?? 10);
+            ->paginate(min(intval($request->limit ?? 10), 100));
 
         return KontenResource::collection($kontens)->additional([
             "success" => true,
@@ -59,7 +73,7 @@ class KontenController extends Controller
         $konten = Konten::create([
             "judul" => $request->judul,
             "slug" => Str::slug($request->judul) . "-" . time(),
-            "isi" => $request->isi,
+            "isi" => $this->sanitizeHtml($request->isi),
             "tipe" => $request->tipe,
             "thumbnail" => $thumbnailPath,
             "author_id" => auth()->user()?->id,
@@ -112,7 +126,10 @@ class KontenController extends Controller
                 ->store("konten", "public");
         }
 
-        $updateData = $request->except("thumbnail");
+        $updateData = $request->except('thumbnail');
+        if (isset($updateData['isi'])) {
+            $updateData['isi'] = $this->sanitizeHtml($updateData['isi']);
+        }
         if ($request->has("judul")) {
             $updateData["slug"] = Str::slug($request->judul) . "-" . time();
         }

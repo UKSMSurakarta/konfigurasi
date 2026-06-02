@@ -123,7 +123,20 @@ class ReportController extends Controller
     public function detailSekolah($sekolahId, Request $request)
     {
         $periodId = $request->period_id ?? AssessmentPeriod::where('is_active', true)->value('id');
-        $sekolah = Sekolah::with('opd')->findOrFail($sekolahId);
+
+        // IDOR Protection: verify school belongs to admin's OPD
+        $user = auth()->user();
+        if ($user->role !== 'superadmin') {
+            $sekolah = Sekolah::where('id', $sekolahId)
+                ->where('opd_id', $user->opd_id)
+                ->with('opd')
+                ->first();
+            if (!$sekolah) {
+                return response()->json(['success' => false, 'message' => 'Sekolah tidak ditemukan.'], 403);
+            }
+        } else {
+            $sekolah = Sekolah::with('opd')->findOrFail($sekolahId);
+        }
 
         $levels = Level::where('period_id', $periodId)->orderBy('urutan')->get()->map(function($level) use ($sekolahId, $periodId) {
             $submission = LevelSubmission::where('level_id', $level->id)
@@ -168,8 +181,18 @@ class ReportController extends Controller
     public function statistikPeriode($periodId)
     {
         $period = AssessmentPeriod::findOrFail($periodId);
-        $totalSekolah = Sekolah::count();
+        $user = auth()->user();
+
+        // Filter berdasarkan OPD untuk admin non-superadmin
+        $sekolahQuery = Sekolah::query();
+        if ($user->role !== 'superadmin') {
+            $sekolahQuery->where('opd_id', $user->opd_id);
+        }
+        $sekolahIds = $sekolahQuery->pluck('id');
+        $totalSekolah = $sekolahIds->count();
+
         $sekolahFinal = LevelSubmission::where('period_id', $periodId)
+            ->whereIn('sekolah_id', $sekolahIds)
             ->whereIn('status', ['final', 'verified'])
             ->distinct('sekolah_id')
             ->count();
@@ -183,7 +206,7 @@ class ReportController extends Controller
                     'total' => $sekolahFinal,
                 'persentase' => $totalSekolah > 0 ? round(($sekolahFinal / $totalSekolah) * 100, 2) : 0,
                 ],
-                'avg_total_skor' => round(LevelSubmission::where('period_id', $periodId)->whereIn('status', ['final', 'verified'])->avg('total_skor'), 2),
+                'avg_total_skor' => round(LevelSubmission::where('period_id', $periodId)->whereIn('sekolah_id', $sekolahIds)->whereIn('status', ['final', 'verified'])->avg('total_skor'), 2),
             ]
         ]);
     }

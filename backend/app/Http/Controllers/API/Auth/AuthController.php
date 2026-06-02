@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\API\Auth\LoginRequest;
 use App\Http\Resources\API\UserResource;
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -39,7 +40,7 @@ class AuthController extends Controller
         }
 
         $turnstileResponse = $http->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
-            'secret' => env('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA'), // Dummy key fallback
+            'secret' => env('TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA'),
             'response' => $request->turnstile_token,
             'remoteip' => $request->ip(),
         ]);
@@ -57,7 +58,15 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($throttleKey, 60); // 1 minute delay
+            RateLimiter::hit($throttleKey, 60);
+            AuditLog::create([
+                'user_id' => $user ? $user->id : null,
+                'action' => 'LOGIN_FAILED',
+                'auditable_type' => User::class,
+                'auditable_id' => $user ? $user->id : null,
+                'details' => "Login gagal untuk email: {$request->email}",
+                'ip_address' => $request->ip(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Email atau password salah.',
@@ -79,6 +88,16 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // Audit log login berhasil
+        AuditLog::create([
+            'user_id' => $user->id,
+            'action' => 'LOGIN_SUCCESS',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'details' => "Login berhasil dari IP: {$request->ip()}",
+            'ip_address' => $request->ip(),
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil.',
@@ -96,6 +115,15 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        AuditLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'LOGOUT',
+            'auditable_type' => User::class,
+            'auditable_id' => $request->user()->id,
+            'details' => 'User logout',
+            'ip_address' => $request->ip(),
+        ]);
+
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
