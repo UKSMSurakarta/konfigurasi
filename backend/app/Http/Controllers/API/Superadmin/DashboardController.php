@@ -75,7 +75,7 @@ class DashboardController extends Controller
             if ($activePeriodId && $opdTotalSekolah > 0) {
                 $opdSelesai = LevelSubmission::where('period_id', $activePeriodId)
                     ->whereIn('sekolah_id', $opdSekolahs)
-                    ->whereIn('status', ['verified', 'final'])
+                    ->whereIn('status', ['verified'])
                     ->distinct('sekolah_id')
                     ->count();
             }

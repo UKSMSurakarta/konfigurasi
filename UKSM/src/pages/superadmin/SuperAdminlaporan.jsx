@@ -12,11 +12,13 @@ import {
   getSuperadminDashboardApi,
   getSuperadminMonitoringApi,
 } from "../../api/superadmin";
+import { useNavigate } from "react-router-dom";
 
 /* ─────────────────────────────────────────────────────────────
    COMPONENT
 ───────────────────────────────────────────────────────────── */
 export default function SuperAdminlaporan() {
+  const navigate = useNavigate();
   const [dash, setDash] = useState(null);
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -446,6 +448,7 @@ export default function SuperAdminlaporan() {
                       <td style={td}>
                         <button
                           className="btn btn-outline"
+                          onClick={() => navigate(`/superadmin/laporan/${row.id ?? i}`)}
                           style={{
                             padding: "6px 14px",
                             borderRadius: "10px",

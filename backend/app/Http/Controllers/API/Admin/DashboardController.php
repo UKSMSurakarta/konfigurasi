@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $opdId = auth()->user()->opd_id;
+        $user = auth()->user();
+        $opdId = $user->role === 'superadmin' && $request->has('opd_id') ? $request->opd_id : $user->opd_id;
         $activePeriod = DB::table('assessment_periods')->where('is_active', true)->first();
         $activePeriodId = $activePeriod ? $activePeriod->id : null;
 

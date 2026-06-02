@@ -25,6 +25,7 @@ import SuperAdminassessment from "./pages/superadmin/SuperAdminassessment";
 import SuperAdminManajemenSoal from "./pages/superadmin/SuperAdminManajemenSoal";
 import SuperAdminperiode from "./pages/superadmin/SuperAdminperiode";
 import SuperAdminlaporan from "./pages/superadmin/SuperAdminlaporan";
+import SuperAdminLaporanDetail from "./pages/superadmin/SuperAdminLaporanDetail";
 import SuperAdminkonten from "./pages/superadmin/SuperAdminkonten";
 import SuperAdminkontenDesain from "./pages/superadmin/SuperAdminkontenDesain";
 import KontenDashboard from "./pages/konten/KontenDashboard";
@@ -153,6 +154,7 @@ function AppRouter() {
           />
           <Route path="/superadmin/periode" element={<SuperAdminperiode />} />
           <Route path="/superadmin/laporan" element={<SuperAdminlaporan />} />
+          <Route path="/superadmin/laporan/:opdId" element={<SuperAdminLaporanDetail />} />
           <Route path="/superadmin/konten" element={<SuperAdminkonten />} />
           <Route
             path="/superadmin/konten-desain"

@@ -1,8 +1,8 @@
 import axiosInstance from "./axios";
 
 // Dashboard
-export const getAdminDashboardApi = () =>
-  axiosInstance.get("/admin/dashboard").then((r) => r.data);
+export const getAdminDashboardApi = (params) =>
+  axiosInstance.get("/admin/dashboard", { params }).then((r) => r.data);
 
 export const getAdminMonitoringApi = (params) =>
   axiosInstance.get("/admin/monitoring", { params }).then((r) => r.data);
