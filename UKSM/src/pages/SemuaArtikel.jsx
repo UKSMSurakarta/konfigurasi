@@ -42,7 +42,88 @@ export default function SemuaArtikel() {
   );
 
   return (
-    <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", paddingBottom: "100px" }}>
+    <div
+      style={{
+        "--primary": "#042C53",
+        "--secondary": "#0F6E56",
+        "--bg-light": "#F8FAFC",
+        "--border": "#E5E7EB",
+        "--text-main": "#2D3436",
+        backgroundColor: "#F8FAFC",
+        minHeight: "100vh",
+        paddingBottom: "100px",
+      }}
+    >
+      <style>{`
+        .card-grid{
+          display:grid;
+          grid-template-columns:repeat(3,1fr);
+          gap:30px;
+        }
+
+        .news-card{
+          background:white;
+          border-radius:30px;
+          overflow:hidden;
+          border:1px solid #edf1f5;
+          box-shadow:0 15px 40px rgba(0,0,0,0.04);
+          transition:0.3s;
+          height:100%;
+        }
+
+        .news-card:hover{
+          transform:translateY(-8px);
+        }
+
+        .news-img{
+          width:100%;
+          height:240px;
+          object-fit:cover;
+        }
+
+        .news-content{
+          padding:30px;
+        }
+
+        .news-tag{
+          display:inline-block;
+          padding:8px 14px;
+          border-radius:999px;
+          font-size:0.85rem;
+          font-weight:600;
+          margin-bottom:18px;
+        }
+
+        .news-content h5,
+        .news-title{
+          font-size:1.2rem;
+          color:var(--primary);
+          margin-bottom:15px;
+          line-height:1.5;
+        }
+
+        .news-content p,
+        .news-excerpt{
+          color:#6c757d;
+          line-height:1.8;
+        }
+
+        .news-meta{
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px 14px;
+          margin-top:16px;
+          color:#6c757d;
+          font-size:0.85rem;
+        }
+
+        @media(max-width:992px){
+          .card-grid{
+            grid-template-columns:1fr;
+          }
+        }
+      `}</style>
+
       {/* Header / Navbar simple */}
       <header style={{
         background: "white", padding: "20px", display: "flex", alignItems: "center",
@@ -109,9 +190,7 @@ export default function SemuaArtikel() {
               <p style={{ marginTop: "20px", color: "#6C757D" }}>Memuat artikel...</p>
           </div>
         ) : filteredArtikel.length > 0 ? (
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "30px"
-          }}>
+          <div className="card-grid">
             {filteredArtikel.map((item, idx) => (
               <NewsCard key={idx} konten={item} isPublic={true} />
             ))}
