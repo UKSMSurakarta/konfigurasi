@@ -6,14 +6,10 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(() => !!localStorage.getItem("uksm_token"));
-
-    // inline normalization helper removed (do normalization where needed)
+    const [loading, setLoading] = useState(true);
 
     // Restore session on mount
     useEffect(() => {
-        const token = localStorage.getItem("uksm_token");
-        if (!token) return;
         getMeApi()
             .then((res) => {
                 if (res.success) {
@@ -24,13 +20,11 @@ export function AuthProvider({ children }) {
                     console.log('[AuthContext] getMeApi success:', { role: normalized.role, user: normalized });
                     setUser(normalized);
                 } else {
-                    localStorage.removeItem("uksm_token");
-                    localStorage.removeItem("uksm_user");
+                    setUser(null);
                 }
             })
             .catch(() => {
-                localStorage.removeItem("uksm_token");
-                localStorage.removeItem("uksm_user");
+                setUser(null);
             })
             .finally(() => setLoading(false));
     }, []);
@@ -39,9 +33,7 @@ export function AuthProvider({ children }) {
         try {
             const res = await loginApi(email, password, turnstileToken);
             if (res.success) {
-                const { access_token, user: userData } = res.data;
-                localStorage.setItem("uksm_token", access_token);
-                localStorage.setItem("uksm_user", JSON.stringify(userData));
+                const { user: userData } = res.data;
                 const normalized = { ...(userData || {}) };
                 if (normalized.sekolah && !normalized.school) normalized.school = normalized.sekolah;
                 if (normalized.school && !normalized.sekolah) normalized.sekolah = normalized.school;
@@ -64,8 +56,6 @@ export function AuthProvider({ children }) {
         } catch {
             // ignore
         } finally {
-            localStorage.removeItem("uksm_token");
-            localStorage.removeItem("uksm_user");
             setUser(null);
         }
     }

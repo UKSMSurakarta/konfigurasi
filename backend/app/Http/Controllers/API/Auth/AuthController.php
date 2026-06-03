@@ -86,7 +86,8 @@ class AuthController extends Controller
         // Successful Login
         RateLimiter::clear($throttleKey);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
 
         // Audit log login berhasil
         AuditLog::create([
@@ -103,8 +104,6 @@ class AuthController extends Controller
             'message' => 'Login berhasil.',
             'data' => [
                 'user' => new UserResource($user),
-                'access_token' => $token,
-                'token_type' => 'Bearer',
                 'role' => $user->role
             ]
         ]);
@@ -124,7 +123,13 @@ class AuthController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
-        $request->user()->currentAccessToken()->delete();
+        if ($request->user()->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
+
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'success' => true,

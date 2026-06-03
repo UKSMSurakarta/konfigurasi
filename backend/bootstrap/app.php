@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Global CORS middleware – runs on every request
+        // Enable Sanctum's first-party SPA session authentication.
+        $middleware->statefulApi();
+
         $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
 
         // Security Headers – runs on every response
@@ -26,4 +29,3 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
-
