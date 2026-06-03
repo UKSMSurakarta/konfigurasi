@@ -3,12 +3,19 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\Auth\AuthController;
+use App\Http\Controllers\API\HealthCheckController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes - Version 1
 |--------------------------------------------------------------------------
 */
+
+// Health Check Routes (Protected by ProtectHealthCheck middleware)
+Route::middleware('protect_health_check')->group(function () {
+    Route::get('/health', [HealthCheckController::class, 'check']);
+    Route::get('/health/up', [HealthCheckController::class, 'upSimple']);
+});
 
 // Handle OPTIONS preflight requests for CORS
 Route::options("/{any}", function () {

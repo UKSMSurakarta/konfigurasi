@@ -9,6 +9,7 @@ import {
     uploadBuktiApi,
 } from "../../api/sekolah";
 import { useToast } from "../../components/Toast";
+import { validateFile } from "../../utils/fileValidation";
 
 export default function SekolahAssessment() {
     const { user } = useAuth();
@@ -165,10 +166,12 @@ export default function SekolahAssessment() {
             return;
         }
 
-        if (!["image/jpeg", "image/png", "image/jpg", "application/pdf"].includes(file.type)) {
-            showToast("Hanya JPG, PNG, atau PDF", "error"); return;
+        // Validasi dengan magic bytes
+        const validation = await validateFile(file, ['jpg', 'png', 'pdf'], 1);
+        if (!validation.valid) {
+            showToast(validation.error, "error");
+            return;
         }
-        if (file.size > 1 * 1024 * 1024) { showToast("File Max 1MB", "error"); return; }
 
         const formData = new FormData();
         formData.append("file", file);
@@ -187,7 +190,7 @@ export default function SekolahAssessment() {
                 showToast("File berhasil diupload");
             }
         } catch (err) {
-            showToast("Gagal upload file", "error");
+            showToast(err?.response?.data?.message || "Gagal upload file", "error");
         }
     }
 
