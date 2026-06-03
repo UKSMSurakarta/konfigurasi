@@ -291,6 +291,9 @@ Route::prefix("v1")->group(function () {
                     "index",
                 ]);
             });
+
+        // Mail Test Route (For development only)
+        Route::post("/test-email", [\App\Http\Controllers\API\MailTestController::class, "sendTestEmail"]);
     });
 
     // --- PUBLIC ROUTES (NO AUTH) ---
