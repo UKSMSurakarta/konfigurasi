@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {
     FileSpreadsheet, Download, Eye, School,
     CheckCircle2, Clock3, AlertTriangle, PieChart, BarChart3,
@@ -7,7 +7,7 @@ import {
 import { getRekapSekolahApi } from "../../api/admin";
 
 export default function AdminAnalisisLaporan() {
-    const [data, setData]       = useState(null);
+    const [data, setData] = useState(null);
     const [schools, setSchools] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,7 +34,7 @@ export default function AdminAnalisisLaporan() {
         return s.progress ?? s.progress_persen ?? s.persentase ?? s.persen ?? s.total_progress ?? 0;
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         const exportData = schools.map((s, index) => ({
             "No": index + 1,
             "Nama Sekolah": s.nama || s.name || "-",
@@ -44,21 +44,33 @@ export default function AdminAnalisisLaporan() {
             "Verifikasi": s.verifikasi_status || (s.status === "Terverifikasi" ? "Terverifikasi" : "Belum")
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan_Sekolah");
-        XLSX.writeFile(workbook, "Laporan_Sekolah_Binaan.xlsx");
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Laporan_Sekolah");
+        const columns = Object.keys(exportData[0] ?? {}).map((key) => ({ header: key, key, width: 20 }));
+        worksheet.columns = columns;
+        exportData.forEach((row) => worksheet.addRow(row));
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Laporan_Sekolah_Binaan.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
     };
 
     if (loading) return <LoadingSpinner />;
 
     const dashStats = data?.stats || {};
-    const total    = dashStats.total_sekolah ?? schools.length;
-    const selesai  = dashStats.terverifikasi ?? schools.filter(s => s.status === "Terverifikasi" || s.status === "Selesai").length;
+    const total = dashStats.total_sekolah ?? schools.length;
+    const selesai = dashStats.terverifikasi ?? schools.filter(s => s.status === "Terverifikasi" || s.status === "Selesai").length;
     const menunggu = dashStats.menunggu_verifikasi ?? schools.filter(s => s.status === "Menunggu Verifikasi").length;
-    const belum    = dashStats.belum_selesai ?? schools.filter(s => s.status === "Belum Selesai" || s.status === "Proses").length;
+    const belum = dashStats.belum_selesai ?? schools.filter(s => s.status === "Belum Selesai" || s.status === "Proses").length;
     const predikat = data?.rekap_predikat || [];
-    const persen   = total > 0 ? Math.round((selesai / total) * 100) : 0;
+    const persen = total > 0 ? Math.round((selesai / total) * 100) : 0;
 
     return (
         <div style={{ width: "100%", overflowX: "hidden", display: "flex", flexDirection: "column", gap: "22px" }}>
@@ -99,10 +111,10 @@ export default function AdminAnalisisLaporan() {
 
             {/* STATISTIK */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "18px" }}>
-                <StatCard icon={<School size={22} />}       title="Total Sekolah"       value={String(total)}    color="var(--secondary)" bg="var(--accent-glow)" />
-                <StatCard icon={<CheckCircle2 size={22} />}  title="Terverifikasi"       value={String(selesai)}  color="#16A34A"          bg="#DCFCE7" />
-                <StatCard icon={<Clock3 size={22} />}         title="Menunggu Verifikasi" value={String(menunggu)} color="#D97706"          bg="#FEF3C7" />
-                <StatCard icon={<AlertTriangle size={22} />}  title="Belum Selesai"       value={String(belum)}    color="#DC2626"          bg="#FEE2E2" />
+                <StatCard icon={<School size={22} />} title="Total Sekolah" value={String(total)} color="var(--secondary)" bg="var(--accent-glow)" />
+                <StatCard icon={<CheckCircle2 size={22} />} title="Terverifikasi" value={String(selesai)} color="#16A34A" bg="#DCFCE7" />
+                <StatCard icon={<Clock3 size={22} />} title="Menunggu Verifikasi" value={String(menunggu)} color="#D97706" bg="#FEF3C7" />
+                <StatCard icon={<AlertTriangle size={22} />} title="Belum Selesai" value={String(belum)} color="#DC2626" bg="#FEE2E2" />
             </div>
 
             {/* ANALISIS */}
@@ -135,7 +147,7 @@ export default function AdminAnalisisLaporan() {
                         <div style={{
                             width: "200px", height: "200px", borderRadius: "50%", position: "relative",
                             background: total > 0
-                                ? `conic-gradient(#16A34A 0% ${(selesai/total*100).toFixed(1)}%, #F59E0B ${(selesai/total*100).toFixed(1)}% ${((selesai+menunggu)/total*100).toFixed(1)}%, #DC2626 ${((selesai+menunggu)/total*100).toFixed(1)}% 100%)`
+                                ? `conic-gradient(#16A34A 0% ${(selesai / total * 100).toFixed(1)}%, #F59E0B ${(selesai / total * 100).toFixed(1)}% ${((selesai + menunggu) / total * 100).toFixed(1)}%, #DC2626 ${((selesai + menunggu) / total * 100).toFixed(1)}% 100%)`
                                 : "#e5e7eb",
                         }}>
                             <div style={{ position: "absolute", inset: "25px", background: "white", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", textAlign: "center" }}>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {
   FileBarChart,
   Download,
@@ -68,7 +68,7 @@ export default function SuperAdminlaporan() {
   /* rekap_opd comes from the dashboard API */
   const opdList = stats.rekap_opd ?? stats.opd_progress ?? [];
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const exportData = opdList.map((row, index) => {
       const pct = row.persentase ?? row.persen ?? 0;
       const total = row.total_sekolah ?? row.totalSekolah ?? row.total ?? 0;
@@ -79,14 +79,26 @@ export default function SuperAdminlaporan() {
         "Wilayah / OPD": row.nama ?? row.name ?? "-",
         "Total Sekolah": total,
         "Sudah Selesai": selesai,
-        "Progress (%)": pct
+        "Progress (%)": pct,
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan_Nasional");
-    XLSX.writeFile(workbook, "Laporan_Nasional_UKS.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Laporan_Nasional");
+    const columns = Object.keys(exportData[0] ?? {}).map((key) => ({ header: key, key, width: 20 }));
+    worksheet.columns = columns;
+    exportData.forEach((row) => worksheet.addRow(row));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Laporan_Nasional_UKS.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   /* ── Render helpers ─────────────────────────────────── */
