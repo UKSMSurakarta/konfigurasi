@@ -109,3 +109,10 @@ export const uploadKontenImageApi = (file) => {
     .post("/user/kontens/upload-image", formData)
     .then((r) => r.data);
 };
+
+// Pengaturan Sertifikat
+export const getPengaturanSertifikatApi = () =>
+  axiosInstance.get("/admin/pengaturan-sertifikat").then((r) => r.data);
+
+export const updatePengaturanSertifikatApi = (data) =>
+  axiosInstance.post("/admin/pengaturan-sertifikat", data).then((r) => r.data);

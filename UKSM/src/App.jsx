@@ -17,6 +17,7 @@ import AdminVerifikasi from "./pages/admin/AdminVerifikasi";
 import AdminVerifikasiDetail from "./pages/admin/AdminVerifikasiDetail";
 import AdminKelolaSekolah from "./pages/admin/AdminKelolaSekolah";
 import Adminlaporan from "./pages/admin/Adminlaporan";
+import AdminPengaturanSertifikat from "./pages/admin/AdminPengaturanSertifikat";
 import SuperadminDashboard from "./pages/superadmin/SuperadminDashboard";
 import SuperadminManajemenOPD from "./pages/superadmin/SuperadminManajemenOPD";
 import SuperAdminSekolah from "./pages/superadmin/SuperAdminSekolah";
@@ -119,6 +120,7 @@ function AppRouter() {
           />
           <Route path="/admin/sekolah" element={<AdminKelolaSekolah />} />
           <Route path="/admin/laporan" element={<Adminlaporan />} />
+          <Route path="/admin/pengaturan-sertifikat" element={<AdminPengaturanSertifikat />} />
         </Route>
 
         {/* ── Superadmin ── */}

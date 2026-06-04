@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { PERIODE_AKTIF } from "../../data/questions";
 import CertificateTemplate from "../../components/CertificateTemplate";
-import { getSekolahLevelsApi, getSekolahProfileApi } from "../../api/sekolah";
+import { getSekolahLevelsApi, getSekolahProfileApi, getSekolahSertifikatApi, generateSekolahSertifikatApi } from "../../api/sekolah";
+import { toast } from "react-toastify";
 import {
   Trophy, CheckCircle2, Clock3, ShieldCheck,
-  Award, AlertCircle, FileBadge, Lock,
+  Award, AlertCircle, FileBadge, Lock, Settings, Check,
 } from "lucide-react";
 
 export default function SekolahHasilPenilaian() {
@@ -13,15 +14,22 @@ export default function SekolahHasilPenilaian() {
   const [levels, setLevels] = useState([]);
   const [profil, setProfil] = useState({ sekolah: {}, stats: {} });
   const [loading, setLoading] = useState(true);
+  
+  // Sertifikat state
+  const [certData, setCertData] = useState(null);
+  const [inputNomor, setInputNomor] = useState("");
+  const [useAutoNumber, setUseAutoNumber] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     let active = true;
     const fetch = async () => {
       setLoading(true);
       try {
-        const [levelsRes, profilRes] = await Promise.all([
+        const [levelsRes, profilRes, certRes] = await Promise.all([
           getSekolahLevelsApi(),
           getSekolahProfileApi().catch(() => ({ data: {} })),
+          getSekolahSertifikatApi().catch(() => null),
         ]);
 
         if (!active) return;
@@ -31,6 +39,11 @@ export default function SekolahHasilPenilaian() {
 
         const profileData = profilRes.data?.data ?? profilRes.data ?? profilRes ?? {};
         setProfil({ sekolah: profileData.sekolah ?? profileData ?? {}, stats: profileData.stats ?? {} });
+
+        if (certRes?.success && certRes?.data) {
+          setCertData(certRes.data);
+          setInputNomor(certRes.data.auto_number_preview || "");
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -44,10 +57,34 @@ export default function SekolahHasilPenilaian() {
     };
   }, []);
 
+  const handleGenerateSertifikat = async (e) => {
+    e.preventDefault();
+    if (!certData) return;
+
+    try {
+      setGenerating(true);
+      const payload = {
+        nomor_surat: useAutoNumber ? certData.auto_number_preview : inputNomor,
+        predikat: certData.predikat_calc,
+        is_auto: useAutoNumber,
+      };
+
+      const res = await generateSekolahSertifikatApi(payload);
+      if (res.success) {
+        toast.success(res.message || "Sertifikat berhasil diterbitkan!");
+        setCertData({ ...certData, sertifikat: res.data });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Terjadi kesalahan saat menerbitkan sertifikat.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   /* ── hitung statistik dari levels ── */
   const totalLevels = levels.length;
   const tiersSelesai = levels.filter((l) => l.status === "submitted" || l.status === "verified").length;
-  const isVerified = totalLevels > 0 && levels.every(l => l.status === "verified");
 
   // Calculate aggregate percentages
   let totalPct = 0;
@@ -57,25 +94,27 @@ export default function SekolahHasilPenilaian() {
   levels.forEach(l => {
     const pct = l.status === "submitted" || l.status === "verified" ? 100 : (l.progress_persen ?? l.answered_pct ?? 0);
     totalPct += pct;
-    // Fallback text if backend doesn't provide absolute numbers
     totalPertanyaan += l.total_pertanyaan || 10;
     totalFilled += l.answered_pertanyaan || Math.round((pct / 100) * (l.total_pertanyaan || 10));
   });
 
   const progressPct = totalLevels > 0 ? Math.round(totalPct / totalLevels) : 0;
-
-  // normalize user school property (some responses use `school`, others `sekolah`)
   const userSchool = user?.school ?? user?.sekolah ?? null;
   const sekolah = profil?.sekolah ?? profil?.sekolah ?? userSchool ?? {};
-  const stats = profil?.stats ?? {};
-  const verified = isVerified || stats.is_verified || sekolah.status === "terverifikasi";
-  const predikat = stats.predikat || sekolah.predikat || "standar";
-  const certificateReady = verified;
-  const nomorSertifikat = stats.nomor_sertifikat || sekolah.nomor_sertifikat || `UKS-${new Date().getFullYear()}-${userSchool?.id || '01'}`;
-  const verifiedBy = stats.verified_by || sekolah.verified_by || "Admin Dinkes";
 
-  const verifiedAt = stats.verified_at || sekolah.verified_at || new Date().toLocaleString("id-ID");
-  const catatanVerifikasi = stats.catatan_verifikasi || sekolah.catatan_verifikasi || "";
+  // Gunakan data dari backend certData
+  const isVerified = certData?.is_verified ?? false;
+  const certificateReady = isVerified;
+  const isGenerated = !!certData?.sertifikat;
+  
+  const predikat = isGenerated ? certData.sertifikat.predikat : (certData?.predikat_calc || "standar");
+  const nomorSertifikat = isGenerated ? certData.sertifikat.nomor_surat : "";
+  const verifiedBy = certData?.verifier_name || "Admin Dinkes";
+  const verifiedAt = certData?.verified_at ? new Date(certData.verified_at).toLocaleString("id-ID") : new Date().toLocaleString("id-ID");
+  
+  const catatanVerifikasi = profil?.stats?.catatan_verifikasi || profil?.sekolah?.catatan_verifikasi || "";
+  
+  const setting = certData?.setting || null;
 
   const predLabel = predikat.charAt(0).toUpperCase() + predikat.slice(1);
   const predColors = {
@@ -87,9 +126,9 @@ export default function SekolahHasilPenilaian() {
   };
   const predStyle = predColors[predikat.toLowerCase()] || predColors.standar;
 
-  const statusLabel = verified ? "Terverifikasi" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
-  const statusColor = verified ? "#0F9D58" : progressPct === 100 ? "#D97706" : "var(--primary)";
-  const statusBg = verified ? "#E8FFF1" : progressPct === 100 ? "#FFF7E8" : "#EFF6FF";
+  const statusLabel = isVerified ? "Terverifikasi" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
+  const statusColor = isVerified ? "#0F9D58" : progressPct === 100 ? "#D97706" : "var(--primary)";
+  const statusBg = isVerified ? "#E8FFF1" : progressPct === 100 ? "#FFF7E8" : "#EFF6FF";
 
   if (loading) {
     return <div style={{ textAlign: "center", padding: "50px", color: "var(--text-muted)" }}>Memuat data penilaian...</div>;
@@ -120,10 +159,10 @@ export default function SekolahHasilPenilaian() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: 6 }}>Sekolah Peserta</div>
             <h2 style={{ fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 700, marginBottom: 8, lineHeight: 1.3, wordBreak: "break-word" }}>
-              {user?.school?.name || sekolah.nama || sekolah.name || "SDN 011 Laweyan"}
+              {sekolah.nama || user?.school?.name || "SDN 011 Laweyan"}
             </h2>
             <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
-              {verified && (
+              {isVerified && (
                 <div style={{ padding: "5px 14px", borderRadius: "999px", background: predStyle.bg, color: predStyle.color, fontWeight: 700, fontSize: "13px" }}>
                   Predikat {predLabel}
                 </div>
@@ -173,28 +212,101 @@ export default function SekolahHasilPenilaian() {
         </div>
 
         {certificateReady ? (
-          /* ── SERTIFIKAT TERSEDIA ── */
-          <div>
-            {/* status banner */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 18px", borderRadius: "16px", background: "#E8FFF1", border: "1px solid #C7F0D8", marginBottom: "24px" }}>
-              <CheckCircle2 size={20} color="#0F9D58" />
-              <div>
-                <div style={{ fontWeight: 700, color: "#0F9D58" }}>Sertifikat Resmi Tersedia</div>
-                <div style={{ fontSize: "13px", color: "#256C45" }}>
-                  Diterbitkan oleh {verifiedBy || "Admin"} · {verifiedAt}
+          isGenerated ? (
+            /* ── SERTIFIKAT SUDAH DIGENERATE ── */
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 18px", borderRadius: "16px", background: "#E8FFF1", border: "1px solid #C7F0D8", marginBottom: "24px" }}>
+                <CheckCircle2 size={20} color="#0F9D58" />
+                <div>
+                  <div style={{ fontWeight: 700, color: "#0F9D58" }}>Sertifikat Resmi Tersedia</div>
+                  <div style={{ fontSize: "13px", color: "#256C45" }}>
+                    Diterbitkan oleh {verifiedBy} · Nomor: {nomorSertifikat}
+                  </div>
                 </div>
               </div>
+              <CertificateTemplate
+                namaSekolah={sekolah.nama || user?.school?.name || "SDN"}
+                predikat={predikat}
+                nomorSertif={nomorSertifikat}
+                verifiedAt={certData?.sertifikat?.published_at || verifiedAt}
+                verifiedBy={verifiedBy}
+                showActions={true}
+                setting={setting}
+              />
             </div>
-            {/* certificate component */}
-            <CertificateTemplate
-              namaSekolah={user?.school?.name || profil?.nama || "SDN 011 Laweyan"}
-              predikat={predikat}
-              nomorSertif={nomorSertifikat}
-              verifiedAt={verifiedAt}
-              verifiedBy={verifiedBy}
-              showActions={true}
-            />
-          </div>
+          ) : (
+            /* ── SERTIFIKAT SIAP DI-GENERATE (MEMILIH NOMOR) ── */
+            <div style={{ padding: "24px", background: "var(--bg-light)", borderRadius: "16px", border: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "var(--accent-glow)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--secondary)" }}>
+                  <Settings size={24} />
+                </div>
+                <div>
+                  <h4 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 4px 0" }}>Terbitkan Sertifikat</h4>
+                  <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: 0 }}>
+                    Sekolah Anda telah diverifikasi dengan predikat <strong>{predLabel}</strong>. Silakan konfirmasi nomor surat untuk menerbitkan sertifikat.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleGenerateSertifikat}>
+                <div style={{ display: "grid", gap: "16px", marginBottom: "24px" }}>
+                  {setting?.is_auto_number && (
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "16px", borderRadius: "12px", border: useAutoNumber ? "2px solid var(--primary)" : "1px solid var(--border)", background: useAutoNumber ? "var(--bg-light)" : "transparent" }}>
+                      <input 
+                        type="radio" 
+                        checked={useAutoNumber} 
+                        onChange={() => setUseAutoNumber(true)} 
+                        style={{ marginTop: "4px" }} 
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: "15px" }}>Gunakan Penomoran Otomatis</div>
+                        <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>
+                          Sistem akan menggunakan format dari Admin OPD.
+                        </div>
+                        <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(0,0,0,0.05)", borderRadius: "6px", fontFamily: "monospace", fontSize: "14px", fontWeight: 700 }}>
+                          {certData?.auto_number_preview}
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "16px", borderRadius: "12px", border: !useAutoNumber ? "2px solid var(--primary)" : "1px solid var(--border)", background: !useAutoNumber ? "var(--bg-light)" : "transparent" }}>
+                    <input 
+                      type="radio" 
+                      checked={!useAutoNumber} 
+                      onChange={() => setUseAutoNumber(false)} 
+                      style={{ marginTop: "4px" }} 
+                    />
+                    <div style={{ width: "100%" }}>
+                      <div style={{ fontWeight: 600, fontSize: "15px" }}>Input Nomor Manual</div>
+                      <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px", marginBottom: "12px" }}>
+                        Masukkan nomor surat sertifikat secara manual jika Anda memiliki format sendiri.
+                      </div>
+                      {!useAutoNumber && (
+                        <input
+                          type="text"
+                          value={inputNomor}
+                          onChange={(e) => setInputNomor(e.target.value)}
+                          placeholder="Contoh: 440/123/UKS/2026"
+                          className="input"
+                          style={{ width: "100%" }}
+                          required
+                        />
+                      )}
+                    </div>
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button type="submit" className="btn btn-primary" disabled={generating} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 24px" }}>
+                    <Check size={18} />
+                    {generating ? "Menerbitkan..." : "Terbitkan Sertifikat"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )
         ) : (
           /* ── BELUM TERSEDIA ── */
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "52px 24px", gap: "18px", textAlign: "center" }}>
@@ -233,6 +345,7 @@ export default function SekolahHasilPenilaian() {
     </div>
   );
 }
+
 
 function StatCard({ icon, title, value, color, bg }) {
   return (

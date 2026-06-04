@@ -34,6 +34,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
       { path: "/admin/verifikasi", label: "Verifikasi", icon: <CheckSquare size={20} /> },
       { path: "/admin/sekolah", label: "Kelola Sekolah", icon: <Building2 size={20} /> },
       { path: "/admin/laporan", label: "Laporan & Analisis", icon: <FileBarChart size={20} /> },
+      { path: "/admin/pengaturan-sertifikat", label: "Pengaturan Sertifikat", icon: <FileText size={20} /> },
     ],
     superadmin: [
       { path: "/superadmin/dashboard", label: "Dashboard Pusat", icon: <LayoutDashboard size={20} /> },

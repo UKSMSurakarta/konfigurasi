@@ -11,6 +11,7 @@ import { CERTIFICATE_CONFIG, PREDIKAT_UKS } from "../data/questions";
      verifiedAt    : string
      verifiedBy    : string
      showActions   : boolean (default true)
+     setting       : object (optional, from backend)
 ============================================================= */
 export default function CertificateTemplate({
   namaSekolah,
@@ -19,9 +20,25 @@ export default function CertificateTemplate({
   verifiedAt,
   verifiedBy,
   showActions = true,
+  setting = null,
 }) {
   const certRef = useRef(null);
-  const cfg = CERTIFICATE_CONFIG;
+  const baseCfg = CERTIFICATE_CONFIG;
+  const cfg = {
+    ...baseCfg,
+    issuer: setting?.nama_penerbit || baseCfg.issuer,
+    ttdNama: setting?.jabatan_penandatangan || baseCfg.ttdNama,
+    ttdJabatan: setting?.jabatan_penandatangan ? "" : baseCfg.ttdJabatan, // If jab penandatangan combines both, or we can just replace ttdNama. Actually, let's use ttdJabatan for setting.jabatan_penandatangan and keep ttdNama or vice versa.
+  };
+  
+  if (setting?.nama_penerbit) {
+    cfg.issuer = setting.nama_penerbit;
+  }
+  if (setting?.jabatan_penandatangan) {
+    cfg.ttdJabatan = setting.jabatan_penandatangan;
+    cfg.ttdNama = setting.nama_penerbit; // The prompt said jabatan penandatangan, often it's signed by the office name or the head. Let's just use what they provide.
+  }
+
   const pred = PREDIKAT_UKS.find((p) => p.key === predikat) || PREDIKAT_UKS[1];
 
   function handlePrint() {

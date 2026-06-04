@@ -32,3 +32,10 @@ export const getSekolahProfileApi = () =>
 
 export const updateSekolahProfileApi = (data) =>
     axiosInstance.put('/sekolah/profile', data).then(r => r.data);
+
+// Sertifikat
+export const getSekolahSertifikatApi = () =>
+    axiosInstance.get('/sekolah/sertifikat').then(r => r.data);
+
+export const generateSekolahSertifikatApi = (data) =>
+    axiosInstance.post('/sekolah/sertifikat/generate', data).then(r => r.data);
