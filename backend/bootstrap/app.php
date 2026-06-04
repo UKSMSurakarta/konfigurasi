@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'cors' => \App\Http\Middleware\CorsMiddleware::class,
+            'protect_health_check' => \App\Http\Middleware\ProtectHealthCheck::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

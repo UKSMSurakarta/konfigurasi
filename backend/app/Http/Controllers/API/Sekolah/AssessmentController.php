@@ -10,6 +10,7 @@ use App\Models\Pertanyaan;
 use App\Models\Jawaban;
 use App\Models\LevelSubmission;
 use App\Services\AssessmentService;
+use App\Services\FileValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -350,6 +351,22 @@ class AssessmentController extends Controller
         $request->validate([
             "file" => "required|file|mimes:jpg,png,pdf|max:5120",
         ]);
+
+        // Validasi magic bytes
+        $fileValidator = new FileValidationService();
+        $validation = $fileValidator->validate(
+            $request->file("file"),
+            ['jpg', 'png', 'pdf'],
+            5120 // 5MB in KB
+        );
+
+        if (!$validation['valid']) {
+            return response()->json([
+                "success" => false,
+                "message" => "File validation failed: " . $validation['error'],
+                "data" => null,
+            ], 422);
+        }
 
         $path = $request->file("file")->store("bukti", "public");
 

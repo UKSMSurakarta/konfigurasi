@@ -20,6 +20,7 @@ import {
 import { createKontenApi, updateKontenApi, uploadKontenImageApi } from "../../api/admin";
 import axiosInstance from "../../api/axios";
 import { useToast } from "../../components/Toast";
+import { validateFileMagicBytes } from "../../utils/fileValidation";
 
 const TIPE_OPTIONS = [
   { value: "berita", label: "Berita" },
@@ -79,6 +80,13 @@ export default function KontenDesain() {
     const file = e.target.files[0];
     if (!file) return;
     try {
+      // Validasi magic bytes
+      const validation = await validateFileMagicBytes(file, ['jpg', 'png', 'gif']);
+      if (!validation.valid) {
+        showToast(validation.error, "error");
+        return;
+      }
+
       showToast("Sedang mengunggah gambar...", "info");
       const res = await uploadKontenImageApi(file);
       if (res.success && res.url) {
@@ -86,14 +94,22 @@ export default function KontenDesain() {
         showToast("Gambar berhasil diunggah", "success");
       }
     } catch (err) {
-      showToast("Gagal mengunggah gambar", "error");
+      showToast(err?.response?.data?.message || "Gagal mengunggah gambar", "error");
     }
     e.target.value = null;
   };
 
-  const handleCoverUpload = (e) => {
+  const handleCoverUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Validasi magic bytes
+    const validation = await validateFileMagicBytes(file, ['jpg', 'png', 'gif']);
+    if (!validation.valid) {
+      showToast(validation.error, "error");
+      return;
+    }
+
     setCoverFile(file);
     setCover(URL.createObjectURL(file));
   };
@@ -129,9 +145,9 @@ export default function KontenDesain() {
         return { className: "tag-warning", style: {} };
       case "galeri":
       default:
-        return { 
-          className: "", 
-          style: { background: "#F3E8FF", color: "#9333EA" } 
+        return {
+          className: "",
+          style: { background: "#F3E8FF", color: "#9333EA" }
         };
     }
   };
@@ -150,7 +166,7 @@ export default function KontenDesain() {
     }
 
     setSaving(true);
-    
+
     const payload = new FormData();
     payload.append("judul", title);
     payload.append("isi", editorContent);
@@ -1025,18 +1041,18 @@ export default function KontenDesain() {
             {/* LIVE PREVIEW CARD */}
             <div className="side-card" style={{ position: "static" }}>
               <h3 className="side-title">Live Preview</h3>
-              
+
               <div className="news-card">
                 {cover ? (
                   <img src={cover} alt="Cover Preview" className="news-img" />
                 ) : (
-                  <div 
-                    className="news-img" 
-                    style={{ 
-                      background: "linear-gradient(135deg, var(--primary), var(--secondary))", 
-                      display: "flex", 
-                      alignItems: "center", 
-                      justifyContent: "center", 
+                  <div
+                    className="news-img"
+                    style={{
+                      background: "linear-gradient(135deg, var(--primary), var(--secondary))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       color: "white",
                       fontSize: "14px",
                       fontWeight: 600,
@@ -1046,20 +1062,20 @@ export default function KontenDesain() {
                     Belum ada Cover
                   </div>
                 )}
-                
+
                 <div className="news-content">
                   <span className={`news-tag ${getTagClassAndStyle(selectedTipe).className}`} style={getTagClassAndStyle(selectedTipe).style}>
                     {TIPE_OPTIONS.find(t => t.value === selectedTipe)?.label || selectedTipe}
                   </span>
-                  
+
                   <h5 className="news-title">
                     {title && title !== "Judul Artikel..." ? title : "Judul Artikel..."}
                   </h5>
-                  
+
                   <p className="news-excerpt">
                     {getExcerpt()}
                   </p>
-                  
+
                   <div className="news-meta">
                     <span>{getFormattedDate()}</span>
                     <span>Oleh: {author || "Admin Konten"}</span>

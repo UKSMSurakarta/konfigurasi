@@ -4,6 +4,7 @@ import { useUKS, TIER_STATUS, VERIFY, TIER_KEYS } from "../context/UKSContext";
 import { TIERS } from "../data/questions";
 import { useToast } from "../components/Toast";
 import Certificate from "../components/Certificate";
+import { validateFileMagicBytes } from "../utils/fileValidation";
 
 export default function UserPage() {
   const { user, logout } = useAuth();
@@ -32,18 +33,23 @@ export default function UserPage() {
     setLocalAnswers((p) => ({ ...p, [key]: { ...existing, memenuhi: val } }));
   }
 
-  function handleFile(e, key) {
+  async function handleFile(e, key) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!["image/jpeg","image/png","image/jpg","application/pdf"].includes(file.type)) {
-      showToast("Hanya JPG, PNG, atau PDF", "error"); return;
+
+    // Validasi dengan magic bytes
+    const validation = await validateFileMagicBytes(file, ['jpg', 'png', 'pdf']);
+    if (!validation.valid) {
+      showToast(validation.error, "error");
+      return;
     }
+
     if (file.size > 5 * 1024 * 1024) { showToast("Maksimal 5MB", "error"); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       setLocalAnswers((p) => {
         const ex = p[key] || answers[key] || { memenuhi: null, bukti: { files: [], links: [] } };
-        return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti||{}), files: [...(ex.bukti?.files||[]), { name: file.name, type: file.type, data: ev.target.result }] } } };
+        return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti || {}), files: [...(ex.bukti?.files || []), { name: file.name, type: file.type, data: ev.target.result }] } } };
       });
     };
     reader.readAsDataURL(file);
@@ -52,17 +58,17 @@ export default function UserPage() {
   function removeFile(key, idx) {
     setLocalAnswers((p) => {
       const ex = p[key] || answers[key] || { memenuhi: null, bukti: { files: [], links: [] } };
-      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti||{}), files: (ex.bukti?.files||[]).filter((_,i)=>i!==idx) } } };
+      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti || {}), files: (ex.bukti?.files || []).filter((_, i) => i !== idx) } } };
     });
   }
 
   function addLink(key) {
-    const link = (linkInputs[key]||"").trim();
+    const link = (linkInputs[key] || "").trim();
     if (!link) return;
-    if (!link.startsWith("http")) { showToast("Link harus diawali https://","error"); return; }
+    if (!link.startsWith("http")) { showToast("Link harus diawali https://", "error"); return; }
     setLocalAnswers((p) => {
       const ex = p[key] || answers[key] || { memenuhi: null, bukti: { files: [], links: [] } };
-      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti||{}), links: [...(ex.bukti?.links||[]), link] } } };
+      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti || {}), links: [...(ex.bukti?.links || []), link] } } };
     });
     setLinkInputs((p) => ({ ...p, [key]: "" }));
   }
@@ -70,7 +76,7 @@ export default function UserPage() {
   function removeLink(key, idx) {
     setLocalAnswers((p) => {
       const ex = p[key] || answers[key] || { memenuhi: null, bukti: { files: [], links: [] } };
-      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti||{}), links: (ex.bukti?.links||[]).filter((_,i)=>i!==idx) } } };
+      return { ...p, [key]: { ...ex, bukti: { ...(ex.bukti || {}), links: (ex.bukti?.links || []).filter((_, i) => i !== idx) } } };
     });
   }
 
@@ -233,9 +239,11 @@ export default function UserPage() {
 
                         {/* Admin feedback */}
                         {qVerif?.finalized && (
-                          <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: 8,
+                          <div style={{
+                            marginBottom: 10, padding: "8px 12px", borderRadius: 8,
                             background: qVerif.status === VERIFY.BELUM ? "#FCEBEB" : "#E1F5EE",
-                            border: `0.5px solid ${qVerif.status === VERIFY.BELUM ? "#F5C0C0" : "#A0DEC8"}` }}>
+                            border: `0.5px solid ${qVerif.status === VERIFY.BELUM ? "#F5C0C0" : "#A0DEC8"}`
+                          }}>
                             <div style={{ fontSize: 11, fontWeight: 600, color: qVerif.status === VERIFY.BELUM ? "#E24B4A" : "#1D9E75" }}>
                               {qVerif.status === VERIFY.BELUM ? "✕ Belum Memenuhi — Catatan Admin:" : "✓ Diverifikasi Admin"}
                             </div>
@@ -307,7 +315,7 @@ export default function UserPage() {
                                 color: "white", fontSize: 14, fontWeight: 600,
                                 cursor: complete ? "pointer" : "not-allowed",
                               }}>
-                              {tk === "paripurna" ? "🎉 Submit & Selesaikan Semua Kategori" : `Submit Kategori ${tier.label} & Lanjut ke ${TIERS[TIER_KEYS[TIER_KEYS.indexOf(tk)+1]]?.label} →`}
+                              {tk === "paripurna" ? "🎉 Submit & Selesaikan Semua Kategori" : `Submit Kategori ${tier.label} & Lanjut ke ${TIERS[TIER_KEYS[TIER_KEYS.indexOf(tk) + 1]]?.label} →`}
                             </button>
                           </div>
                         )}
@@ -331,7 +339,7 @@ export default function UserPage() {
             <div style={{ fontSize: 13, color: "#666", marginBottom: 20, lineHeight: 1.6 }}>
               {confirmTier === "paripurna"
                 ? "Ini adalah kategori terakhir. Setelah disubmit, semua data terkunci dan kamu akan mendapatkan sertifikat."
-                : `Setelah disubmit, kategori ${TIERS[confirmTier]?.label} terkunci dan tidak bisa diubah. Kategori ${TIERS[TIER_KEYS[TIER_KEYS.indexOf(confirmTier)+1]]?.label} akan terbuka.`}
+                : `Setelah disubmit, kategori ${TIERS[confirmTier]?.label} terkunci dan tidak bisa diubah. Kategori ${TIERS[TIER_KEYS[TIER_KEYS.indexOf(confirmTier) + 1]]?.label} akan terbuka.`}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setConfirmTier(null)} style={{ ...outlineBtn, flex: 1, padding: "9px", fontSize: 13 }}>Batal</button>

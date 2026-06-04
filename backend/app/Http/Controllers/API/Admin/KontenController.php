@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\API\KontenResource;
 use App\Models\Konten;
+use App\Services\FileValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -64,6 +65,22 @@ class KontenController extends Controller
 
         $thumbnailPath = null;
         if ($request->hasFile("thumbnail")) {
+            // Validasi magic bytes untuk thumbnail
+            $fileValidator = new FileValidationService();
+            $validation = $fileValidator->validate(
+                $request->file("thumbnail"),
+                ['jpg', 'png', 'gif'],
+                5120 // 5MB in KB
+            );
+            
+            if (!$validation['valid']) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Validasi thumbnail gagal: " . $validation['error'],
+                    "data" => null,
+                ], 422);
+            }
+
             $thumbnailPath = $request
                 ->file("thumbnail")
                 ->store("konten", "public");
@@ -118,6 +135,22 @@ class KontenController extends Controller
         ]);
 
         if ($request->hasFile("thumbnail")) {
+            // Validasi magic bytes untuk thumbnail
+            $fileValidator = new FileValidationService();
+            $validation = $fileValidator->validate(
+                $request->file("thumbnail"),
+                ['jpg', 'png', 'gif'],
+                5120 // 5MB in KB
+            );
+            
+            if (!$validation['valid']) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Validasi thumbnail gagal: " . $validation['error'],
+                    "data" => null,
+                ], 422);
+            }
+
             if ($konten->thumbnail) {
                 Storage::disk("public")->delete($konten->thumbnail);
             }
@@ -191,6 +224,22 @@ class KontenController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            // Validasi magic bytes untuk image
+            $fileValidator = new FileValidationService();
+            $validation = $fileValidator->validate(
+                $request->file('image'),
+                ['jpg', 'png', 'gif'],
+                5120 // 5MB in KB
+            );
+            
+            if (!$validation['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi image gagal: ' . $validation['error'],
+                    'data' => null,
+                ], 422);
+            }
+
             $path = $request->file('image')->store('konten/images', 'public');
             return response()->json([
                 'success' => true,
