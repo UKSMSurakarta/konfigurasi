@@ -61,7 +61,7 @@ class MailService
     public function isValidEmail(string $email): bool
     {
         $validator = Validator::make(['email' => $email], [
-            'email' => 'required|email:rfc,dns'
+            'email' => 'required|email:rfc'
         ]);
 
         return !$validator->fails();

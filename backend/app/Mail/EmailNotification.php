@@ -18,10 +18,10 @@ class EmailNotification extends Mailable
      * Create a new message instance.
      */
     public function __construct(
-        public string $subject,
+        public string $emailSubject,
         public string $htmlBody,
-        public ?string $plainTextBody = null,
-        public array $attachmentsData = []
+        public ?string $plainText = null,
+        public array $emailAttachments = []
     ) {}
 
     /**
@@ -30,7 +30,7 @@ class EmailNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->subject,
+            subject: $this->emailSubject,
         );
     }
 
@@ -46,7 +46,7 @@ class EmailNotification extends Mailable
             ],
         );
 
-        if ($this->plainTextBody) {
+        if ($this->plainText) {
             $content->text = 'emails.notification_plain';
         }
 
@@ -62,7 +62,7 @@ class EmailNotification extends Mailable
     {
         $attachments = [];
 
-        foreach ($this->attachmentsData as $attachment) {
+        foreach ($this->emailAttachments as $attachment) {
             if (isset($attachment['path'])) {
                 $file = Attachment::fromPath($attachment['path']);
                 
