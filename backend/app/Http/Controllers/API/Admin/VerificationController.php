@@ -85,6 +85,8 @@ class VerificationController extends Controller
         $request->validate([
             "status" => "required|in:disetujui,ditolak",
             "catatan" => "nullable|string",
+            "rejected_pertanyaan_ids" => "nullable|array",
+            "rejected_pertanyaan_ids.*" => "integer|exists:pertanyaans,id",
         ]);
 
         $submission = LevelSubmission::where("sekolah_id", $sekolahId)
@@ -97,6 +99,9 @@ class VerificationController extends Controller
             $sekolahId,
             $levelId,
         ) {
+            $level = Level::findOrFail($levelId);
+            $allPertanyaanIds = $level->pertanyaans()->pluck("id")->toArray();
+
             if ($request->status === "disetujui") {
                 $submission->update([
                     "status" => "verified",
@@ -104,6 +109,14 @@ class VerificationController extends Controller
                     "verifier_id" => auth()->id(),
                     "catatan_verifikator" => $request->catatan,
                 ]);
+
+                // All answers in the level are locked and not rejected
+                Jawaban::where("sekolah_id", $sekolahId)
+                    ->whereIn("pertanyaan_id", $allPertanyaanIds)
+                    ->update([
+                        "is_final" => true,
+                        "is_rejected" => false,
+                    ]);
             } else {
                 // Reject: Return to draft so school can edit
                 $submission->update([
@@ -112,13 +125,29 @@ class VerificationController extends Controller
                     "submitted_at" => null, // reset submission time
                 ]);
 
-                // Also unlock the answers
+                $rejectedPertanyaanIds = $request->input("rejected_pertanyaan_ids", []);
+                if (empty($rejectedPertanyaanIds)) {
+                    $rejectedPertanyaanIds = $allPertanyaanIds;
+                }
+
+                // Unlock and mark rejected answers
                 Jawaban::where("sekolah_id", $sekolahId)
-                    ->whereIn(
-                        "pertanyaan_id",
-                        Level::find($levelId)->pertanyaans()->pluck("id"),
-                    )
-                    ->update(["is_final" => false]);
+                    ->whereIn("pertanyaan_id", $rejectedPertanyaanIds)
+                    ->update([
+                        "is_final" => false,
+                        "is_rejected" => true,
+                    ]);
+
+                // Lock approved answers
+                $approvedPertanyaanIds = array_diff($allPertanyaanIds, $rejectedPertanyaanIds);
+                if (!empty($approvedPertanyaanIds)) {
+                    Jawaban::where("sekolah_id", $sekolahId)
+                        ->whereIn("pertanyaan_id", $approvedPertanyaanIds)
+                        ->update([
+                            "is_final" => true,
+                            "is_rejected" => false,
+                        ]);
+                }
             }
 
             // Notify School
@@ -213,6 +242,7 @@ class VerificationController extends Controller
                             : "Belum Dijawab",
                         "nilai" => $j ? $j->nilai : 0,
                         "bukti_links" => $links,
+                        "is_rejected" => $j ? (bool)$j->is_rejected : false,
                     ];
                 });
 

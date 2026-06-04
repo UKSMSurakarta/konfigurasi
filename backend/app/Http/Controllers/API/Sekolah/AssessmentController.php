@@ -333,7 +333,7 @@ class AssessmentController extends Controller
             Jawaban::where("sekolah_id", $sekolahId)
                 ->where("period_id", $period->id)
                 ->whereIn("pertanyaan_id", $allPertanyaanIds)
-                ->update(["is_final" => true, "submitted_at" => now()]);
+                ->update(["is_final" => true, "is_rejected" => false, "submitted_at" => now()]);
         });
 
         return response()->json([
