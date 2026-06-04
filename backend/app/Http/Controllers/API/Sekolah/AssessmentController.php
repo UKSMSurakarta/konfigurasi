@@ -41,11 +41,18 @@ class AssessmentController extends Controller
         }
 
         $sekolahId = auth()->user()->sekolah_id;
-        $levels = Level::where("period_id", $period->id)
-            ->orderBy("urutan")
+        
+        $levels = \Illuminate\Support\Facades\Cache::remember("levels_period_{$period->id}", 3600, function () use ($period) {
+            return Level::where("period_id", $period->id)->orderBy("urutan")->get();
+        });
+
+        $submissions = $this->service->getSubmissions($sekolahId, $period->id);
+        
+        $allJawabans = Jawaban::where('sekolah_id', $sekolahId)
+            ->where('period_id', $period->id)
             ->get();
 
-        $data = $levels->map(function ($level) use ($sekolahId, $period) {
+        $data = $levels->map(function ($level) use ($sekolahId, $period, $submissions, $allJawabans) {
             return [
                 "id" => $level->id,
                 "nama" => $level->nama,
@@ -54,11 +61,13 @@ class AssessmentController extends Controller
                     $level,
                     $sekolahId,
                     $period->id,
+                    $submissions
                 ),
                 "progress" => $this->service->calculateProgress(
                     $level,
                     $sekolahId,
                     $period->id,
+                    $allJawabans
                 ),
             ];
         });
