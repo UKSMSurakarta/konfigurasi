@@ -138,3 +138,27 @@ graph TD
 ---
 
 > **Catatan Penting:** Semua fitur aplikasi yang sudah ada (login, dashboard, penilaian, verifikasi, laporan, export Excel, konten) tetap berfungsi normal. Perbaikan hanya menambahkan lapisan keamanan tanpa mengubah alur bisnis (business logic) yang sudah ada.
+
+---
+
+# Tahap 5 — Optimasi Performa (Full-Stack)
+
+> Perbaikan dilaksanakan: **4 Juni 2026**
+
+## 🚀 Perubahan yang Diterapkan
+
+### 1. Database Indexing
+Mencegah potensi query lambat akibat _table scan_ saat concurrent user tinggi. Index ditambahkan pada relasi penting:
+- `sekolahs` (`opd_id`)
+- `users` (`opd_id`, `sekolah_id`, `role`)
+- `level_submissions` (`sekolah_id`, `period_id`, `status`)
+
+### 2. Backend Query Optimization & Caching
+Penyelesaian isu `N+1 Query` di `AssessmentService`:
+- `getActivePeriod()` sekarang dilindungi oleh `Cache::remember`.
+- Metrik penghitungan `calculateProgress`, `getLevelStatus`, dan `getSchoolStats` di-_refactor_ agar mengonsumsi _collection_ dari RAM (hasil eager loading) ketimbang melakukan query ke database secara berulang dalam bentuk loop.
+- `AssessmentController@index` sekarang mengirim data jawaban dan _submission_ secara _eager_ untuk dievaluasi oleh logic service, mempercepat _dashboard_ load secara signifikan.
+
+### 3. Frontend React Code Splitting & Lazy Loading
+- Semua halaman (Pages) di `UKSM/src/App.jsx` sekarang di-_lazy load_ menggunakan `React.lazy()` dan dibungkus dalam `<Suspense>`.
+- Berhasil **memangkas bundle utama (`index.js`)** dari ~1.6 MB menjadi **~289 KB**, menghilangkan _warning chunk_ dari Vite, serta sangat mempercepat waktu _Initial Page Load_ bagi klien.

@@ -1,38 +1,39 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { UKSProvider } from "./context/UKSContext";
 import Toast from "./components/Toast";
 import LoginPage from "./pages/LoginPage";
 import LandingPage from "./pages/LandingPage";
-import SemuaArtikel from "./pages/SemuaArtikel";
-import PublicKontenPreview from "./pages/PublicKontenPreview";
+const SemuaArtikel = lazy(() => import("./pages/SemuaArtikel"));
+const PublicKontenPreview = lazy(() => import("./pages/PublicKontenPreview"));
 
 import DashboardLayout from "./components/layout/DashboardLayout";
-import SekolahDashboard from "./pages/sekolah/SekolahDashboard";
-import SekolahAssessment from "./pages/sekolah/sekolahAssessment";
-import SekolahHasilPenilaian from "./pages/sekolah/sekolahHasilPenilaian";
-import SekolahProfil from "./pages/sekolah/sekolahProfil";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminVerifikasi from "./pages/admin/AdminVerifikasi";
-import AdminVerifikasiDetail from "./pages/admin/AdminVerifikasiDetail";
-import AdminKelolaSekolah from "./pages/admin/AdminKelolaSekolah";
-import Adminlaporan from "./pages/admin/Adminlaporan";
-import AdminPengaturanSertifikat from "./pages/admin/AdminPengaturanSertifikat";
-import SuperadminDashboard from "./pages/superadmin/SuperadminDashboard";
-import SuperadminManajemenOPD from "./pages/superadmin/SuperadminManajemenOPD";
-import SuperAdminSekolah from "./pages/superadmin/SuperAdminSekolah";
-import SuperAdminusers from "./pages/superadmin/SuperAdminusers";
-import SuperAdminassessment from "./pages/superadmin/SuperAdminassessment";
-import SuperAdminManajemenSoal from "./pages/superadmin/SuperAdminManajemenSoal";
-import SuperAdminperiode from "./pages/superadmin/SuperAdminperiode";
-import SuperAdminlaporan from "./pages/superadmin/SuperAdminlaporan";
-import SuperAdminLaporanDetail from "./pages/superadmin/SuperAdminLaporanDetail";
-import SuperAdminkonten from "./pages/superadmin/SuperAdminkonten";
-import SuperAdminkontenDesain from "./pages/superadmin/SuperAdminkontenDesain";
-import KontenDashboard from "./pages/konten/KontenDashboard";
-import KontenDesain from "./pages/konten/KontenDesain";
-import KontenPreview from "./pages/konten/KontenPreview";
-import KontenGaleriMedia from "./pages/konten/KontenGaleriMedia";
+const SekolahDashboard = lazy(() => import("./pages/sekolah/SekolahDashboard"));
+const SekolahAssessment = lazy(() => import("./pages/sekolah/sekolahAssessment"));
+const SekolahHasilPenilaian = lazy(() => import("./pages/sekolah/sekolahHasilPenilaian"));
+const SekolahProfil = lazy(() => import("./pages/sekolah/sekolahProfil"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminVerifikasi = lazy(() => import("./pages/admin/AdminVerifikasi"));
+const AdminVerifikasiDetail = lazy(() => import("./pages/admin/AdminVerifikasiDetail"));
+const AdminKelolaSekolah = lazy(() => import("./pages/admin/AdminKelolaSekolah"));
+const Adminlaporan = lazy(() => import("./pages/admin/Adminlaporan"));
+const AdminPengaturanSertifikat = lazy(() => import("./pages/admin/AdminPengaturanSertifikat"));
+const SuperadminDashboard = lazy(() => import("./pages/superadmin/SuperadminDashboard"));
+const SuperadminManajemenOPD = lazy(() => import("./pages/superadmin/SuperadminManajemenOPD"));
+const SuperAdminSekolah = lazy(() => import("./pages/superadmin/SuperAdminSekolah"));
+const SuperAdminusers = lazy(() => import("./pages/superadmin/SuperAdminusers"));
+const SuperAdminassessment = lazy(() => import("./pages/superadmin/SuperAdminassessment"));
+const SuperAdminManajemenSoal = lazy(() => import("./pages/superadmin/SuperAdminManajemenSoal"));
+const SuperAdminperiode = lazy(() => import("./pages/superadmin/SuperAdminperiode"));
+const SuperAdminlaporan = lazy(() => import("./pages/superadmin/SuperAdminlaporan"));
+const SuperAdminLaporanDetail = lazy(() => import("./pages/superadmin/SuperAdminLaporanDetail"));
+const SuperAdminkonten = lazy(() => import("./pages/superadmin/SuperAdminkonten"));
+const SuperAdminkontenDesain = lazy(() => import("./pages/superadmin/SuperAdminkontenDesain"));
+const KontenDashboard = lazy(() => import("./pages/konten/KontenDashboard"));
+const KontenDesain = lazy(() => import("./pages/konten/KontenDesain"));
+const KontenPreview = lazy(() => import("./pages/konten/KontenPreview"));
+const KontenGaleriMedia = lazy(() => import("./pages/konten/KontenGaleriMedia"));
 
 // Role-based redirect map
 const ROLE_HOME = {
@@ -84,6 +85,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 function AppRouter() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-gray-200 border-t-[#0F6E56] rounded-full animate-spin"></div></div>}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/semua-artikel" element={<SemuaArtikel />} />
@@ -182,6 +184,7 @@ function AppRouter() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
