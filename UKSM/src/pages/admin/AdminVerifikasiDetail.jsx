@@ -9,12 +9,12 @@ import { getSekolahAssessmentDetailApi, verifikasiSekolahApi } from "../../api/a
 
 // ─── Status config per level ────────────────────────────────────────────────
 const LEVEL_STATUS_MAP = {
-    verified:     { label: "Terverifikasi",       bg: "#DCFCE7", color: "#15803D" },
-    final:        { label: "Menunggu Verifikasi",  bg: "#FEF3C7", color: "#B45309" },
-    submitted:    { label: "Tersubmit",            bg: "#DBEAFE", color: "#1D4ED8" },
-    draft:        { label: "Draft",                bg: "#F3F4F6", color: "#6B7280" },
-    "Belum Mulai":{ label: "Belum Mulai",          bg: "#F3F4F6", color: "#9CA3AF" },
-    locked:       { label: "Terkunci",             bg: "#F3F4F6", color: "#9CA3AF" },
+    verified:      { label: "Terverifikasi",       bg: "#DCFCE7", color: "#15803D" },
+    final:         { label: "Menunggu Verifikasi",  bg: "#FEF3C7", color: "#B45309" },
+    submitted:     { label: "Tersubmit",            bg: "#DBEAFE", color: "#1D4ED8" },
+    draft:         { label: "Draft",                bg: "#F3F4F6", color: "#6B7280" },
+    "Belum Mulai": { label: "Belum Mulai",          bg: "#F3F4F6", color: "#9CA3AF" },
+    locked:        { label: "Terkunci",             bg: "#F3F4F6", color: "#9CA3AF" },
 };
 const getLevelStatus = (status) =>
     LEVEL_STATUS_MAP[status] ?? { label: status ?? "–", bg: "#F3F4F6", color: "#6B7280" };
@@ -36,14 +36,28 @@ export default function AdminVerifikasiDetail() {
     const navigate      = useNavigate();
     const location      = useLocation();
 
-    const [data,           setData]           = useState(null);
-    const [loading,        setLoading]        = useState(true);
-    const [error,          setError]          = useState(null);
-    const [openLevels,     setOpenLevels]     = useState({});
-    const [catatanMap,     setCatatanMap]     = useState({});
-    const [confirmModal,   setConfirmModal]   = useState(null); // { level, action }
-    const [verifyAllModal, setVerifyAllModal] = useState(false);
-    const [confirming,     setConfirming]     = useState(false);
+    const [data,              setData]              = useState(null);
+    const [loading,           setLoading]           = useState(true);
+    const [error,             setError]             = useState(null);
+    const [openLevels,        setOpenLevels]        = useState({});
+    const [catatanMap,        setCatatanMap]        = useState({});
+    const [confirmModal,      setConfirmModal]      = useState(null); // { level, action }
+    const [verifyAllModal,    setVerifyAllModal]    = useState(false);
+    const [confirming,        setConfirming]        = useState(false);
+    // { [levelId]: Set of question ids marked for rejection }
+    const [rejectedQuestions, setRejectedQuestions] = useState({});
+
+    // Toggle a question's rejection marking for a given level
+    const toggleQuestionRejection = (levelId, questionId) => {
+        setRejectedQuestions(prev => {
+            const list = prev[levelId] || [];
+            if (list.includes(questionId)) {
+                return { ...prev, [levelId]: list.filter(id => id !== questionId) };
+            } else {
+                return { ...prev, [levelId]: [...list, questionId] };
+            }
+        });
+    };
 
     // Detect base path for back-navigation (admin vs superadmin)
     const basePath = location.pathname.startsWith("/superadmin")
@@ -57,7 +71,6 @@ export default function AdminVerifikasiDetail() {
         try {
             const json = await getSekolahAssessmentDetailApi(sekolahId);
             if (json.success) {
-                // Urutkan levels berdasarkan urutan
                 if (json.data && Array.isArray(json.data.details)) {
                     json.data.details.sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
                     json.data.details.forEach(lvl => {
@@ -67,7 +80,6 @@ export default function AdminVerifikasiDetail() {
                     });
                 }
                 setData(json.data);
-                // Open all levels by default
                 const all = {};
                 json.data.details.forEach((lvl) => { all[lvl.level_id] = true; });
                 setOpenLevels(all);
@@ -91,8 +103,17 @@ export default function AdminVerifikasiDetail() {
             await verifikasiSekolahApi(sekolahId, levelId, {
                 catatan: catatanMap[levelId] ?? "",
                 status,
+                rejected_pertanyaan_ids: status === "ditolak"
+                    ? (rejectedQuestions[levelId] || [])
+                    : [],
             });
             setConfirmModal(null);
+            // Clear rejected state for this level
+            setRejectedQuestions(prev => {
+                const copy = { ...prev };
+                delete copy[levelId];
+                return copy;
+            });
             await fetchDetail();
         } catch (err) {
             console.error(err);
@@ -113,6 +134,7 @@ export default function AdminVerifikasiDetail() {
                 await verifikasiSekolahApi(sekolahId, lvl.level_id, {
                     catatan: catatanMap[lvl.level_id] ?? "",
                     status: "disetujui",
+                    rejected_pertanyaan_ids: [],
                 });
             }
             setVerifyAllModal(false);
@@ -149,7 +171,7 @@ export default function AdminVerifikasiDetail() {
     if (!data) return null;
 
     const { sekolah, details, stats } = data;
-    const schoolName   = sekolah?.nama || sekolah?.name || "Sekolah";
+    const schoolName    = sekolah?.nama || sekolah?.name || "Sekolah";
     const pendingLevels  = details.filter((l) => l.status === "final" || l.status === "submitted");
     const verifiedLevels = details.filter((l) => l.status === "verified");
 
@@ -239,6 +261,7 @@ export default function AdminVerifikasiDetail() {
                     const st        = getLevelStatus(lvl.status);
                     const answered  = lvl.questions.filter((q) => q.jawaban !== "Belum Dijawab").length;
                     const memenuhi  = lvl.questions.filter((q) => q.jawaban === "Memenuhi").length;
+                    const markedCount = (rejectedQuestions[lvl.level_id] || []).length;
 
                     return (
                         <div
@@ -266,7 +289,6 @@ export default function AdminVerifikasiDetail() {
                                 }}
                             >
                                 <div style={{ display:"flex", alignItems:"center", gap:"12px", flex:1, minWidth:0 }}>
-                                    {/* Icon circle */}
                                     <div style={{
                                         width:38, height:38, borderRadius:"11px", flexShrink:0,
                                         background: st.bg,
@@ -284,6 +306,11 @@ export default function AdminVerifikasiDetail() {
                                         <div style={{ fontSize:"12px", color:"var(--text-muted)", marginTop:"2px" }}>
                                             {answered}/{lvl.questions.length} dijawab &nbsp;·&nbsp; {memenuhi} Memenuhi
                                             {lvl.verified_at && ` · Diverifikasi ${fmtDate(lvl.verified_at)}`}
+                                            {markedCount > 0 && (
+                                                <span style={{ marginLeft:8, color:"#B91C1C", fontWeight:700 }}>
+                                                    · {markedCount} soal akan ditolak
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -305,16 +332,31 @@ export default function AdminVerifikasiDetail() {
                             {/* Level content */}
                             {isOpen && (
                                 <div>
+                                    {/* Hint banner when pending */}
+                                    {canVerify && (
+                                        <div style={{
+                                            padding:"10px 20px",
+                                            background:"#FFFBEB",
+                                            borderBottom:"1px solid #FDE68A",
+                                            fontSize:"12px", color:"#92400E",
+                                            display:"flex", alignItems:"center", gap:"6px",
+                                        }}>
+                                            <Info size={13}/> Klik tombol <strong>Tolak</strong> di setiap soal untuk menandai soal yang perlu diisi ulang oleh sekolah. Soal yang tidak ditandai akan terkunci otomatis.
+                                        </div>
+                                    )}
+
                                     {/* Question list */}
                                     {lvl.questions.length === 0 ? (
                                         <div style={{ padding:"28px", textAlign:"center", color:"var(--text-muted)", fontSize:"14px" }}>
                                             Belum ada jawaban untuk level ini.
                                         </div>
                                     ) : lvl.questions.map((q, idx) => {
-                                        const isMemenuhi  = q.jawaban === "Memenuhi";
-                                        const isBelum     = q.jawaban === "Belum Memenuhi";
-                                        const jawabanBg   = isMemenuhi ? "#DCFCE7" : isBelum ? "#FEE2E2" : "#F3F4F6";
-                                        const jawabanColor= isMemenuhi ? "#16A34A" : isBelum ? "#DC2626" : "#9CA3AF";
+                                        const isMemenuhi   = q.jawaban === "Memenuhi";
+                                        const isBelum      = q.jawaban === "Belum Memenuhi";
+                                        const jawabanBg    = isMemenuhi ? "#DCFCE7" : isBelum ? "#FEE2E2" : "#F3F4F6";
+                                        const jawabanColor = isMemenuhi ? "#16A34A" : isBelum ? "#DC2626" : "#9CA3AF";
+                                        const isMarkedForRejection = (rejectedQuestions[lvl.level_id] || []).includes(q.id);
+                                        const wasPreviouslyRejected = !!q.is_rejected;
 
                                         return (
                                             <div
@@ -325,6 +367,17 @@ export default function AdminVerifikasiDetail() {
                                                         ? "1px solid var(--bg-light,#F3F4F6)"
                                                         : "none",
                                                     display:"flex", alignItems:"flex-start", gap:"14px",
+                                                    background: isMarkedForRejection
+                                                        ? "#FFF5F5"
+                                                        : wasPreviouslyRejected && canVerify
+                                                            ? "#FFFDF0"
+                                                            : "transparent",
+                                                    transition:"background 0.2s ease",
+                                                    borderLeft: isMarkedForRejection
+                                                        ? "3px solid #F87171"
+                                                        : wasPreviouslyRejected && canVerify
+                                                            ? "3px solid #FCD34D"
+                                                            : "3px solid transparent",
                                                 }}
                                             >
                                                 {/* Number badge */}
@@ -339,11 +392,11 @@ export default function AdminVerifikasiDetail() {
 
                                                 <div style={{ flex:1, minWidth:0 }}>
                                                     <div style={{ fontSize:"13px", fontWeight:600, lineHeight:1.5, marginBottom:"7px" }}>
-                                                        {q.teks_pertanyaan || 
-                                                         (typeof q.pertanyaan === 'object' ? q.pertanyaan?.teks_pertanyaan || q.pertanyaan?.pertanyaan : q.pertanyaan) || 
+                                                        {q.teks_pertanyaan ||
+                                                         (typeof q.pertanyaan === "object" ? q.pertanyaan?.teks_pertanyaan || q.pertanyaan?.pertanyaan : q.pertanyaan) ||
                                                          q.teks || q.text || "Teks pertanyaan tidak tersedia"}
                                                     </div>
-                                                    <div style={{ display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
+                                                    <div style={{ display:"flex", alignItems:"center", gap:"8px", flexWrap:"wrap" }}>
                                                         {/* Jawaban badge */}
                                                         <span style={{
                                                             fontSize:"12px", fontWeight:700,
@@ -352,6 +405,7 @@ export default function AdminVerifikasiDetail() {
                                                         }}>
                                                             {q.jawaban}
                                                         </span>
+
                                                         {/* Bukti links */}
                                                         {q.bukti_links?.length > 0 && q.bukti_links.map((link, li) => (
                                                             <a
@@ -370,8 +424,55 @@ export default function AdminVerifikasiDetail() {
                                                                 <ExternalLink size={10}/> Bukti {li + 1}
                                                             </a>
                                                         ))}
+
+                                                        {/* "Akan Ditolak" badge */}
+                                                        {isMarkedForRejection && (
+                                                            <span style={{
+                                                                fontSize:"11px", fontWeight:700,
+                                                                padding:"2px 9px", borderRadius:"6px",
+                                                                background:"#FEE2E2", color:"#B91C1C",
+                                                                display:"inline-flex", alignItems:"center", gap:"3px",
+                                                            }}>
+                                                                <XCircle size={10}/> Akan Ditolak
+                                                            </span>
+                                                        )}
+
+                                                        {/* "Ditolak Sebelumnya" badge – shown to help admin notice previously rejected items */}
+                                                        {!isMarkedForRejection && wasPreviouslyRejected && canVerify && (
+                                                            <span style={{
+                                                                fontSize:"11px", fontWeight:700,
+                                                                padding:"2px 9px", borderRadius:"6px",
+                                                                background:"#FEF3C7", color:"#92400E",
+                                                                display:"inline-flex", alignItems:"center", gap:"3px",
+                                                            }}>
+                                                                <AlertTriangle size={10}/> Ditolak Sebelumnya
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
+
+                                                {/* Per-question Tolak / Batal Tolak button */}
+                                                {canVerify && (
+                                                    <button
+                                                        onClick={() => toggleQuestionRejection(lvl.level_id, q.id)}
+                                                        style={{
+                                                            flexShrink:0, alignSelf:"center",
+                                                            padding:"5px 14px", borderRadius:"8px",
+                                                            border: isMarkedForRejection ? "1px solid #FECACA" : "1px solid var(--border)",
+                                                            background: isMarkedForRejection ? "#FEE2E2" : "var(--card-bg)",
+                                                            color: isMarkedForRejection ? "#B91C1C" : "var(--text-muted)",
+                                                            fontSize:"12px", fontWeight:700,
+                                                            cursor:"pointer",
+                                                            display:"flex", alignItems:"center", gap:"4px",
+                                                            transition:"all 0.2s ease",
+                                                        }}
+                                                    >
+                                                        {isMarkedForRejection
+                                                            ? <><X size={11}/> Batal</>
+                                                            : <><XCircle size={11}/> Tolak</>
+                                                        }
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -403,6 +504,23 @@ export default function AdminVerifikasiDetail() {
                                             borderTop:"1px solid var(--border)",
                                             background:"var(--bg-light,#F9FAFB)",
                                         }}>
+                                            {/* Summary of rejection selections */}
+                                            {markedCount > 0 && (
+                                                <div style={{
+                                                    padding:"10px 14px", borderRadius:"10px",
+                                                    background:"#FEF2F2", border:"1px solid #FECACA",
+                                                    marginBottom:"12px",
+                                                    fontSize:"13px", color:"#B91C1C",
+                                                    display:"flex", alignItems:"center", gap:"8px",
+                                                }}>
+                                                    <XCircle size={14}/>
+                                                    <span>
+                                                        <strong>{markedCount} soal</strong> ditandai untuk ditolak.
+                                                        Soal lainnya ({lvl.questions.length - markedCount}) akan terkunci otomatis.
+                                                    </span>
+                                                </div>
+                                            )}
+
                                             <label style={{ fontSize:"13px", fontWeight:600, display:"block", marginBottom:"8px" }}>
                                                 Catatan Verifikasi <span style={{ fontWeight:400, color:"var(--text-muted)" }}>(opsional)</span>
                                             </label>
@@ -434,7 +552,8 @@ export default function AdminVerifikasiDetail() {
                                                         justifyContent:"center", gap:"6px",
                                                     }}
                                                 >
-                                                    <XCircle size={15}/> Tolak
+                                                    <XCircle size={15}/>
+                                                    {markedCount > 0 ? `Tolak ${markedCount} Soal` : "Tolak Semua Soal"}
                                                 </button>
                                                 <button
                                                     onClick={() => setConfirmModal({ level: lvl, action: "disetujui" })}
@@ -479,7 +598,7 @@ export default function AdminVerifikasiDetail() {
             {/* ── CONFIRM MODAL (per level) ──────────────────────────────────── */}
             {confirmModal && (
                 <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-                    <div style={{ background:"var(--card-bg)", borderRadius:"24px", padding:"28px 32px", maxWidth:"480px", width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+                    <div style={{ background:"var(--card-bg)", borderRadius:"24px", padding:"28px 32px", maxWidth:"520px", width:"100%", boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
                         {/* Header */}
                         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
@@ -506,11 +625,51 @@ export default function AdminVerifikasiDetail() {
                             </button>
                         </div>
 
-                        <p style={{ fontSize:"14px", color:"var(--text-muted)", lineHeight:1.7, marginBottom:"22px" }}>
-                            {confirmModal.action === "disetujui"
-                                ? <>Yakin ingin <strong>memverifikasi</strong> level <em>{confirmModal.level.level_nama}</em>? Level ini akan ditandai sebagai <strong>Terverifikasi</strong>.</>
-                                : <>Yakin ingin <strong>menolak</strong> level <em>{confirmModal.level.level_nama}</em>? Sekolah akan diminta mengisi ulang level ini.</>}
-                        </p>
+                        {confirmModal.action === "ditolak" && (
+                            <>
+                                {/* Show which questions will be rejected */}
+                                {(rejectedQuestions[confirmModal.level.level_id] || []).length > 0 ? (
+                                    <div style={{ marginBottom:"18px" }}>
+                                        <div style={{ fontSize:"13px", fontWeight:600, color:"var(--text-muted)", marginBottom:"8px" }}>
+                                            Soal yang akan ditolak ({(rejectedQuestions[confirmModal.level.level_id] || []).length} soal):
+                                        </div>
+                                        <div style={{ border:"1px solid #FECACA", borderRadius:"10px", overflow:"hidden" }}>
+                                            {confirmModal.level.questions
+                                                .filter(q => (rejectedQuestions[confirmModal.level.level_id] || []).includes(q.id))
+                                                .map((q, i, arr) => (
+                                                    <div key={q.id} style={{
+                                                        padding:"9px 14px",
+                                                        borderBottom: i < arr.length - 1 ? "1px solid #FEE2E2" : "none",
+                                                        fontSize:"13px",
+                                                        display:"flex", alignItems:"center", gap:"8px",
+                                                    }}>
+                                                        <XCircle size={13} color="#DC2626" style={{ flexShrink:0 }}/>
+                                                        <span style={{ color:"#B91C1C" }}>
+                                                            {q.teks_pertanyaan ||
+                                                             (typeof q.pertanyaan === "object" ? q.pertanyaan?.teks_pertanyaan || q.pertanyaan?.pertanyaan : q.pertanyaan) ||
+                                                             q.teks || q.text || `Soal #${q.id}`}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            }
+                                        </div>
+                                        <div style={{ fontSize:"12px", color:"var(--text-muted)", marginTop:"8px" }}>
+                                            Soal yang <strong>tidak</strong> ditandai akan terkunci otomatis (tidak bisa diubah sekolah).
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p style={{ fontSize:"14px", color:"var(--text-muted)", lineHeight:1.7, marginBottom:"18px" }}>
+                                        Tidak ada soal yang ditandai. Semua soal di level <em>{confirmModal.level.level_nama}</em> akan ditolak dan sekolah diminta mengisi ulang seluruhnya.
+                                    </p>
+                                )}
+                            </>
+                        )}
+
+                        {confirmModal.action === "disetujui" && (
+                            <p style={{ fontSize:"14px", color:"var(--text-muted)", lineHeight:1.7, marginBottom:"22px" }}>
+                                Yakin ingin <strong>memverifikasi</strong> level <em>{confirmModal.level.level_nama}</em>? Level ini akan ditandai sebagai <strong>Terverifikasi</strong> dan semua jawaban dikunci.
+                            </p>
+                        )}
 
                         <div style={{ display:"flex", gap:"10px" }}>
                             <button
@@ -565,7 +724,6 @@ export default function AdminVerifikasiDetail() {
                             Yakin ingin memverifikasi <strong>{pendingLevels.length} level</strong> yang sedang menunggu? Semua level akan ditandai sebagai <strong>Terverifikasi</strong>.
                         </p>
 
-                        {/* List of pending levels */}
                         <div style={{ marginBottom:"22px", border:"1px solid var(--border)", borderRadius:"12px", overflow:"hidden" }}>
                             {pendingLevels.map((lvl, i) => (
                                 <div

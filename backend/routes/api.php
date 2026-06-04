@@ -213,6 +213,16 @@ Route::prefix("v1")->group(function () {
                     "pengumumans",
                     \App\Http\Controllers\API\Shared\PengumumanController::class,
                 )->except(["show"]);
+
+                // Sertifikat Setting Management
+                Route::get("/pengaturan-sertifikat", [
+                    \App\Http\Controllers\API\Admin\SertifikatSettingController::class,
+                    "getSetting"
+                ]);
+                Route::post("/pengaturan-sertifikat", [
+                    \App\Http\Controllers\API\Admin\SertifikatSettingController::class,
+                    "updateSetting"
+                ]);
             });
 
         // Notifications
@@ -289,6 +299,16 @@ Route::prefix("v1")->group(function () {
                 Route::get("/dashboard", [
                     \App\Http\Controllers\API\Sekolah\AssessmentController::class,
                     "index",
+                ]);
+
+                // Sertifikat
+                Route::get("/sertifikat", [
+                    \App\Http\Controllers\API\Sekolah\SertifikatController::class,
+                    "index",
+                ]);
+                Route::post("/sertifikat/generate", [
+                    \App\Http\Controllers\API\Sekolah\SertifikatController::class,
+                    "generate",
                 ]);
             });
 

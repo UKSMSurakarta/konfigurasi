@@ -195,7 +195,7 @@ export const CERTIFICATE_CONFIG = {
 export const PROFIL_FIELDS = [
   { key: "name", label: "Nama Sekolah", type: "text", required: true },
   { key: "npsn", label: "NPSN", type: "text", required: true },
-  { key: "jenjang", label: "Jenjang", type: "select", required: true, options: ["SD", "SMP", "SMA", "SMK", "PAUD"] },
+  { key: "jenjang", label: "Jenjang", type: "select", required: true, options: ["PAUD", "SD", "SMP", "SMA", "SMK"] },
   { key: "wilayah", label: "Kecamatan/Wilayah", type: "text", required: true },
   { key: "opd", label: "OPD / Dinkes", type: "text", required: true },
   { key: "kepala", label: "Nama Kepala Sekolah", type: "text", required: true },
