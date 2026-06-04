@@ -224,7 +224,7 @@ export default function SuperAdminUsers() {
     try {
       const [opdRes, sekolahRes, rolesRes] = await Promise.all([
         getOpdsApi(),
-        getSekolahsApi({ limit: 9999 }),
+        getSekolahsApi({ limit: 50 }),
         getUserRolesApi(),
       ]);
       setOpds(extractList(opdRes));
@@ -1118,8 +1118,8 @@ function UserFormModal({
   formData,
   formError,
   formLoading,
-  opds,
-  sekolahs,
+  opds: initialOpds,
+  sekolahs: initialSekolahs,
   roles,
   onChange,
   onSubmit,
@@ -1130,11 +1130,50 @@ function UserFormModal({
 
   const [opdQuery, setOpdQuery] = useState("");
   const [sekolahQuery, setSekolahQuery] = useState("");
+  const [filteredOpds, setFilteredOpds] = useState(initialOpds || []);
+  const [filteredSekolahs, setFilteredSekolahs] = useState(initialSekolahs || []);
+  const [searching, setSearching] = useState({ opd: false, sekolah: false });
+
+  // Debounced search for OPD
+  useEffect(() => {
+    if (!showOpd || opdQuery === "") return;
+    const timer = setTimeout(async () => {
+      setSearching(prev => ({ ...prev, opd: true }));
+      try {
+        const res = await getOpdsApi({ search: opdQuery });
+        const items = extractList(res);
+        setFilteredOpds(items);
+      } catch (err) {
+        console.error("Search OPD error:", err);
+      } finally {
+        setSearching(prev => ({ ...prev, opd: false }));
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [opdQuery, showOpd]);
+
+  // Debounced search for Sekolah
+  useEffect(() => {
+    if (!showSekolah || sekolahQuery === "") return;
+    const timer = setTimeout(async () => {
+      setSearching(prev => ({ ...prev, sekolah: true }));
+      try {
+        const res = await getSekolahsApi({ search: sekolahQuery, limit: 10 });
+        const items = extractList(res);
+        setFilteredSekolahs(items);
+      } catch (err) {
+        console.error("Search Sekolah error:", err);
+      } finally {
+        setSearching(prev => ({ ...prev, sekolah: false }));
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [sekolahQuery, showSekolah]);
 
   const selectedOpdName =
-    opds.find((o) => String(o.id) === String(formData.opd_id))?.nama || "";
+    filteredOpds.find((o) => String(o.id) === String(formData.opd_id))?.nama || "";
   const selectedSekolahName =
-    sekolahs.find((s) => String(s.id) === String(formData.sekolah_id))?.nama || "";
+    filteredSekolahs.find((s) => String(s.id) === String(formData.sekolah_id))?.nama || "";
 
   const opdInputValue = opdQuery !== "" ? opdQuery : selectedOpdName;
   const sekolahInputValue = sekolahQuery !== "" ? sekolahQuery : selectedSekolahName;
@@ -1205,21 +1244,28 @@ function UserFormModal({
         {/* OPD — shown for admin and user roles */}
         {showOpd && (
           <FormGroup label="OPD">
-            <input
-              list="opd-list"
-              value={opdInputValue}
-              onChange={(e) => {
-                const val = e.target.value;
-                setOpdQuery(val);
-                const match = opds.find((o) => o.nama === val);
-                onChange("opd_id", match ? String(match.id) : "");
-              }}
-              placeholder="Ketik untuk mencari atau pilih OPD"
-              style={inputStyle}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                list="opd-list"
+                value={opdInputValue}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setOpdQuery(val);
+                  const match = filteredOpds.find((o) => o.nama === val);
+                  onChange("opd_id", match ? String(match.id) : "");
+                }}
+                placeholder="Ketik untuk mencari atau pilih OPD"
+                style={inputStyle}
+              />
+              {searching.opd && (
+                <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", color: "var(--text-muted)" }}>
+                  Mencari...
+                </div>
+              )}
+            </div>
             <datalist id="opd-list">
               <option value="">— Pilih OPD —</option>
-              {opds.map((o) => (
+              {filteredOpds.map((o) => (
                 <option key={o.id} value={o.nama} />
               ))}
             </datalist>
@@ -1229,21 +1275,28 @@ function UserFormModal({
         {/* Sekolah — shown for sekolah role */}
         {showSekolah && (
           <FormGroup label="Sekolah">
-            <input
-              list="sekolah-list"
-              value={sekolahInputValue}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSekolahQuery(val);
-                const match = sekolahs.find((s) => s.nama === val);
-                onChange("sekolah_id", match ? String(match.id) : "");
-              }}
-              placeholder="Ketik untuk mencari atau pilih Sekolah"
-              style={inputStyle}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                list="sekolah-list"
+                value={sekolahInputValue}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSekolahQuery(val);
+                  const match = filteredSekolahs.find((s) => s.nama === val);
+                  onChange("sekolah_id", match ? String(match.id) : "");
+                }}
+                placeholder="Ketik untuk mencari atau pilih Sekolah"
+                style={inputStyle}
+              />
+              {searching.sekolah && (
+                <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "10px", color: "var(--text-muted)" }}>
+                  Mencari...
+                </div>
+              )}
+            </div>
             <datalist id="sekolah-list">
               <option value="">— Pilih Sekolah —</option>
-              {sekolahs.map((s) => (
+              {filteredSekolahs.map((s) => (
                 <option key={s.id} value={s.nama} />
               ))}
             </datalist>
