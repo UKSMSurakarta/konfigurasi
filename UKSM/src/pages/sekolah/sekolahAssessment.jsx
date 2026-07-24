@@ -554,12 +554,16 @@ export default function SekolahAssessment() {
                                                     <div style={evidenceBox}>
                                                         <div style={evidenceTitle}>Bukti Dukung <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(opsional)</span></div>
 
-                                                        {j.bukti_links.map((l, li) => (
-                                                            <div key={li} style={fileItem}>
-                                                                <a href={l} target="_blank" rel="noreferrer" style={{ color: "#185FA5", fontSize: 13 }}>{l}</a>
-                                                                <button onClick={() => removeLink(level.id, q.id, li)} style={removeBtn}>×</button>
-                                                            </div>
-                                                        ))}
+                                                        {j.bukti_links.map((l, li) => {
+                                                            const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1').replace(/\/api\/v1\/?$/, '');
+                                                            let href = (l && l.startsWith('/storage/')) ? API_BASE + l : l;
+                                                            return (
+                                                                <div key={li} style={fileItem}>
+                                                                    <a href={href} target="_blank" rel="noreferrer" style={{ color: "#185FA5", fontSize: 13 }}>{href}</a>
+                                                                    <button onClick={() => removeLink(level.id, q.id, li)} style={removeBtn}>×</button>
+                                                                </div>
+                                                            )
+                                                        })}
 
                                                         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 8 }}>
                                                             <div style={{ background: "#EAF2FD", color: "#185FA5", padding: "7px 14px", borderRadius: 8, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
@@ -587,11 +591,15 @@ export default function SekolahAssessment() {
                                                 {isReadOnly && j.bukti_links.length > 0 && (
                                                     <div style={{ ...evidenceBox, background: "#F9FAFB" }}>
                                                         <div style={evidenceTitle}>Bukti Dukung</div>
-                                                        {j.bukti_links.map((l, li) => (
-                                                            <div key={li} style={fileItem}>
-                                                                <a href={l} target="_blank" rel="noreferrer" style={{ color: "#185FA5", fontSize: 13 }}>{l}</a>
-                                                            </div>
-                                                        ))}
+                                                        {j.bukti_links.map((l, li) => {
+                                                            const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1').replace(/\/api\/v1\/?$/, '');
+                                                            let href = (l && l.startsWith('/storage/')) ? API_BASE + l : l;
+                                                            return (
+                                                                <div key={li} style={fileItem}>
+                                                                    <a href={href} target="_blank" rel="noreferrer" style={{ color: "#185FA5", fontSize: 13 }}>{href}</a>
+                                                                </div>
+                                                            )
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>

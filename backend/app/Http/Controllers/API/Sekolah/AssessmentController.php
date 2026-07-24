@@ -72,10 +72,15 @@ class AssessmentController extends Controller
             ];
         });
 
+        $sertifikat = \App\Models\SekolahSertifikat::where('sekolah_id', $sekolahId)
+            ->where('period_id', $period->id)
+            ->first();
+
         return response()->json([
             "success" => true,
             "message" => "Daftar level berhasil diambil.",
             "data" => $data,
+            "sertifikat_status" => $sertifikat ? $sertifikat->status : null,
             "period" => [
                 "id" => $period->id,
                 "nama" => $period->nama,
@@ -151,18 +156,7 @@ class AssessmentController extends Controller
                 403,
             );
         }
-
-        // Cek deadline
-        if ($this->service->isDeadlinePassed()) {
-            return response()->json(
-                [
-                    "success" => false,
-                    "message" => "Batas waktu assessment telah berakhir (" . $period->tanggal_selesai->format('d/m/Y') . "). Anda tidak dapat lagi menyimpan jawaban.",
-                ],
-                403,
-            );
-        }
-
+        
         // Support both legacy fields and new frontend format (memenuhi + bukti_links)
         $request->validate([
             "jawabans" => "required|array",

@@ -34,6 +34,8 @@ const KontenDashboard = lazy(() => import("./pages/konten/KontenDashboard"));
 const KontenDesain = lazy(() => import("./pages/konten/KontenDesain"));
 const KontenPreview = lazy(() => import("./pages/konten/KontenPreview"));
 const KontenGaleriMedia = lazy(() => import("./pages/konten/KontenGaleriMedia"));
+const SuperadminSertifikatList = lazy(() => import("./pages/superadmin/SuperadminSertifikatList"));
+const SuperadminSertifikatDetail = lazy(() => import("./pages/superadmin/SuperadminSertifikatDetail"));
 
 // Role-based redirect map
 const ROLE_HOME = {
@@ -86,104 +88,106 @@ function AppRouter() {
   return (
     <BrowserRouter>
       <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-10 h-10 border-4 border-gray-200 border-t-[#0F6E56] rounded-full animate-spin"></div></div>}>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/semua-artikel" element={<SemuaArtikel />} />
-        <Route path="/artikel/:slug" element={<PublicKontenPreview />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/semua-artikel" element={<SemuaArtikel />} />
+          <Route path="/artikel/:slug" element={<PublicKontenPreview />} />
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* ── Sekolah ── */}
-        <Route
-          element={
-            <ProtectedRoute allowedRoles={["sekolah"]}>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/sekolah/dashboard" element={<SekolahDashboard />} />
-          <Route path="/sekolah/profil" element={<SekolahProfil />} />
-          <Route path="/sekolah/kuesioner" element={<SekolahAssessment />} />
-          <Route path="/sekolah/hasil" element={<SekolahHasilPenilaian />} />
-        </Route>
+          {/* ── Sekolah ── */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={["sekolah"]}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/sekolah/dashboard" element={<SekolahDashboard />} />
+            <Route path="/sekolah/profil" element={<SekolahProfil />} />
+            <Route path="/sekolah/kuesioner" element={<SekolahAssessment />} />
+            <Route path="/sekolah/hasil" element={<SekolahHasilPenilaian />} />
+          </Route>
 
-        {/* ── Admin OPD ── */}
-        <Route
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/verifikasi" element={<AdminVerifikasi />} />
+          {/* ── Admin OPD ── */}
           <Route
-            path="/admin/verifikasi/:sekolahId"
-            element={<AdminVerifikasiDetail />}
-          />
-          <Route path="/admin/sekolah" element={<AdminKelolaSekolah />} />
-          <Route path="/admin/laporan" element={<Adminlaporan />} />
-          <Route path="/admin/pengaturan-sertifikat" element={<AdminPengaturanSertifikat />} />
-        </Route>
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/verifikasi" element={<AdminVerifikasi />} />
+            <Route
+              path="/admin/verifikasi/:sekolahId"
+              element={<AdminVerifikasiDetail />}
+            />
+            <Route path="/admin/sekolah" element={<AdminKelolaSekolah />} />
+            <Route path="/admin/laporan" element={<Adminlaporan />} />
+            <Route path="/admin/pengaturan-sertifikat" element={<AdminPengaturanSertifikat />} />
+          </Route>
 
-        {/* ── Superadmin ── */}
-        <Route
-          element={
-            <ProtectedRoute allowedRoles={["superadmin"]}>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
+          {/* ── Superadmin ── */}
           <Route
-            path="/superadmin/dashboard"
-            element={<SuperadminDashboard />}
-          />
-          <Route
-            path="/superadmin/manajemen"
-            element={<SuperadminManajemenOPD />}
-          />
-          <Route path="/superadmin/sekolah" element={<SuperAdminSekolah />} />
-          <Route path="/superadmin/users" element={<SuperAdminusers />} />
-          <Route
-            path="/superadmin/assessment"
-            element={<SuperAdminassessment />}
-          />
-          <Route
-            path="/superadmin/manajemen-soal"
-            element={<SuperAdminManajemenSoal />}
-          />
-          <Route path="/superadmin/verifikasi" element={<AdminVerifikasi />} />
-          <Route
-            path="/superadmin/verifikasi/:sekolahId"
-            element={<AdminVerifikasiDetail />}
-          />
-          <Route path="/superadmin/periode" element={<SuperAdminperiode />} />
-          <Route path="/superadmin/laporan" element={<SuperAdminlaporan />} />
-          <Route path="/superadmin/laporan/:opdId" element={<SuperAdminLaporanDetail />} />
-          <Route path="/superadmin/konten" element={<SuperAdminkonten />} />
-          <Route
-            path="/superadmin/konten-desain"
-            element={<SuperAdminkontenDesain />}
-          />
-          <Route path="/superadmin/preview/:id" element={<KontenPreview />} />
-        </Route>
+            element={
+              <ProtectedRoute allowedRoles={["superadmin"]}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route
+              path="/superadmin/dashboard"
+              element={<SuperadminDashboard />}
+            />
+            <Route
+              path="/superadmin/manajemen"
+              element={<SuperadminManajemenOPD />}
+            />
+            <Route path="/superadmin/sekolah" element={<SuperAdminSekolah />} />
+            <Route path="/superadmin/users" element={<SuperAdminusers />} />
+            <Route
+              path="/superadmin/assessment"
+              element={<SuperAdminassessment />}
+            />
+            <Route
+              path="/superadmin/manajemen-soal"
+              element={<SuperAdminManajemenSoal />}
+            />
+            <Route path="/superadmin/verifikasi" element={<AdminVerifikasi />} />
+            <Route
+              path="/superadmin/verifikasi/:sekolahId"
+              element={<AdminVerifikasiDetail />}
+            />
+            <Route path="/superadmin/periode" element={<SuperAdminperiode />} />
+            <Route path="/superadmin/laporan" element={<SuperAdminlaporan />} />
+            <Route path="/superadmin/laporan/:opdId" element={<SuperAdminLaporanDetail />} />
+            <Route path="/superadmin/konten" element={<SuperAdminkonten />} />
+            <Route
+              path="/superadmin/konten-desain"
+              element={<SuperAdminkontenDesain />}
+            />
+            <Route path="/superadmin/preview/:id" element={<KontenPreview />} />
+            <Route path="/superadmin/sertifikat" element={<SuperadminSertifikatList />} />
+            <Route path="/superadmin/sertifikat/:sekolahId" element={<SuperadminSertifikatDetail />} />
+          </Route>
 
-        {/* ── Konten ── */}
-        <Route
-          element={
-            <ProtectedRoute allowedRoles={["konten", "user"]}>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/konten/dashboard" element={<KontenDashboard />} />
-          <Route path="/konten/desain" element={<KontenDesain />} />
-          <Route path="/konten/preview/:id" element={<KontenPreview />} />
-          <Route path="/konten/galeri" element={<KontenGaleriMedia />} />
-        </Route>
+          {/* ── Konten ── */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={["konten", "user"]}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/konten/dashboard" element={<KontenDashboard />} />
+            <Route path="/konten/desain" element={<KontenDesain />} />
+            <Route path="/konten/preview/:id" element={<KontenPreview />} />
+            <Route path="/konten/galeri" element={<KontenGaleriMedia />} />
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Suspense>
     </BrowserRouter>
   );

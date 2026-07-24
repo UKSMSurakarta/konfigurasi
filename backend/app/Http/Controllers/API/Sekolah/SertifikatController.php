@@ -62,6 +62,10 @@ class SertifikatController extends Controller
             ->where('period_id', $activePeriod->id)
             ->first();
 
+        if ($sertifikat && $sertifikat->file_path) {
+            $sertifikat->file_url = url(\Illuminate\Support\Facades\Storage::url($sertifikat->file_path));
+        }
+
         $setting = SertifikatSetting::firstOrCreate(
             ['opd_id' => $sekolah->opd_id],
             [

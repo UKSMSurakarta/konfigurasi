@@ -92,6 +92,14 @@ Route::prefix("v1")->group(function () {
                     "toggleActive",
                 ]);
 
+                // Certificate Management (Superadmin issues certificates)
+                Route::prefix("certificates")->group(function () {
+                    Route::get("/", [\App\Http\Controllers\API\Superadmin\CertificateController::class, "index"]);
+                    Route::get("/{sekolahId}", [\App\Http\Controllers\API\Superadmin\CertificateController::class, "showDetails"]);
+                    Route::post("/{sekolahId}/issue", [\App\Http\Controllers\API\Superadmin\CertificateController::class, "issue"]);
+                    Route::post("/{sekolahId}/reject", [\App\Http\Controllers\API\Superadmin\CertificateController::class, "reject"]);
+                });
+
                 // Pengumuman Management (Superadmin - bisa pilih target all/opd)
                 Route::apiResource(
                     "pengumumans",

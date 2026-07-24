@@ -13,6 +13,9 @@ class SekolahSertifikat extends Model
         'predikat',
         'is_auto',
         'published_at',
+        'file_path',
+        'catatan_superadmin',
+        'status',
     ];
 
     protected $casts = [

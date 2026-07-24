@@ -116,3 +116,16 @@ export const getPengaturanSertifikatApi = () =>
 
 export const updatePengaturanSertifikatApi = (data) =>
   axiosInstance.post("/admin/pengaturan-sertifikat", data).then((r) => r.data);
+
+// Superadmin Sertifikat (Manual Issue)
+export const getSuperadminCertificatesApi = (params) =>
+  axiosInstance.get("/superadmin/certificates", { params }).then((r) => r.data);
+
+export const getSuperadminCertificateDetailApi = (sekolahId) =>
+  axiosInstance.get(`/superadmin/certificates/${sekolahId}`).then((r) => r.data);
+
+export const issueSuperadminCertificateApi = (sekolahId, data) =>
+  axiosInstance.post(`/superadmin/certificates/${sekolahId}/issue`, data).then((r) => r.data);
+
+export const rejectSuperadminCertificateApi = (sekolahId, data) =>
+  axiosInstance.post(`/superadmin/certificates/${sekolahId}/reject`, data).then((r) => r.data);

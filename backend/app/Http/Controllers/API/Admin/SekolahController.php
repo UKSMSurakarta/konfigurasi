@@ -66,6 +66,8 @@ class SekolahController extends Controller
             "telepon" => "nullable|string|max:20",
             "akreditasi" => "nullable|string|max:2",
             "tahun_bergabung" => "nullable|integer|min:1900|max:" . date("Y"),
+            "user_email" => "nullable|email|unique:users,email",
+            "user_password" => "nullable|string|min:6",
         ]);
 
         DB::beginTransaction();
@@ -85,11 +87,9 @@ class SekolahController extends Controller
                 "is_active" => true,
             ]);
 
-            // Auto-generate email dan password untuk user sekolah
-            $email =
-                strtolower(str_replace(" ", "", $validated["npsn"])) .
-                "@sekolah.uksm.local";
-            $password = Str::random(12); // Password acak yang kuat
+            // Auto-generate email dan password untuk user sekolah jika kosong
+            $email = $validated["user_email"] ?? (strtolower(str_replace(" ", "", $validated["npsn"])) . "@sekolah.uksm.local");
+            $password = $validated["user_password"] ?? Str::random(12); // Password acak jika kosong
 
             // Buat user untuk sekolah
             $user = User::create([
@@ -187,6 +187,7 @@ class SekolahController extends Controller
             // Data user sekolah (optional)
             "user_name" => "nullable|string|max:255",
             "user_email" => "nullable|email",
+            "user_password" => "nullable|string|min:6",
         ]);
 
         DB::beginTransaction();
@@ -209,7 +210,8 @@ class SekolahController extends Controller
             // Update user sekolah jika ada data user yang dikirim
             if (
                 isset($validated["user_name"]) ||
-                isset($validated["user_email"])
+                isset($validated["user_email"]) ||
+                isset($validated["user_password"])
             ) {
                 $user = User::where("sekolah_id", $sekolah->id)
                     ->where("role", "sekolah")
@@ -240,6 +242,9 @@ class SekolahController extends Controller
                             );
                         }
                         $userUpdate["email"] = $validated["user_email"];
+                    }
+                    if (isset($validated["user_password"])) {
+                        $userUpdate["password"] = Hash::make($validated["user_password"]);
                     }
 
                     if (!empty($userUpdate)) {

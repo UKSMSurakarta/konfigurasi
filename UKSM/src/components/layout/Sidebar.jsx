@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Image,
   ClipboardList,
+  Award,
 } from "lucide-react";
 
 export default function Sidebar({ isOpen, closeSidebar }) {
@@ -44,6 +45,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
       { path: "/superadmin/assessment", label: "Monitoring Assessment", icon: <CheckSquare size={20} /> },
       { path: "/superadmin/manajemen-soal", label: "Manajemen Soal", icon: <ClipboardList size={20} /> },
       { path: "/superadmin/periode", label: "Periode Assessment", icon: <CalendarDays size={20} /> },
+      { path: "/superadmin/sertifikat", label: "Sertifikat Eksternal", icon: <Award size={20} /> },
       { path: "/superadmin/laporan", label: "Laporan & Rekap", icon: <FileBarChart size={20} /> },
       { path: "/superadmin/konten", label: "Konten Website", icon: <FileText size={20} /> },
     ],

@@ -30,5 +30,10 @@ class Sekolah extends Model
     {
         return $this->hasMany(LevelSubmission::class, 'sekolah_id');
     }
+
+    public function sertifikats()
+    {
+        return $this->hasMany(SekolahSertifikat::class, 'sekolah_id');
+    }
 }
 

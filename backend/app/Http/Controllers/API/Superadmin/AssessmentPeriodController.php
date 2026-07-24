@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\AssessmentPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AssessmentPeriodController extends Controller
 {
@@ -34,6 +35,8 @@ class AssessmentPeriodController extends Controller
         }
 
         $period = AssessmentPeriod::create($request->all());
+
+        Cache::forget('active_assessment_period');
 
         return response()->json([
             'success' => true,
@@ -68,6 +71,8 @@ class AssessmentPeriodController extends Controller
         }
 
         $period->update($request->all());
+        
+        Cache::forget('active_assessment_period');
 
         return response()->json([
             'success' => true,
@@ -83,6 +88,8 @@ class AssessmentPeriodController extends Controller
         // Optionally check for dependencies (e.g. if it has submissions)
         
         $period->delete();
+        
+        Cache::forget('active_assessment_period');
 
         return response()->json([
             'success' => true,
@@ -102,6 +109,8 @@ class AssessmentPeriodController extends Controller
         }
         
         $period->save();
+        
+        Cache::forget('active_assessment_period');
 
         return response()->json([
             'success' => true,

@@ -12,6 +12,7 @@ export default function SekolahDashboard() {
     const [levels, setLevels] = useState([]);
     const [pengumuman, setPengumuman] = useState([]);
     const [periode, setPeriode] = useState(null);
+    const [sertifikatStatus, setSertifikatStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -21,6 +22,7 @@ export default function SekolahDashboard() {
         ]).then(([levelsRes, notifRes]) => {
             const lvList = levelsRes.data?.data ?? levelsRes.data ?? [];
             setLevels(Array.isArray(lvList) ? lvList : []);
+            setSertifikatStatus(levelsRes.data?.sertifikat_status ?? null);
 
             // Extract period info from levelsRes.data.period
             const periodData = levelsRes.data?.period;
@@ -46,7 +48,7 @@ export default function SekolahDashboard() {
     const doneLevels = levels.filter(l => l.status === "submitted" || l.status === "verified" || l.status === "final").length;
     const progressPct = totalLevels > 0 ? Math.round((doneLevels / totalLevels) * 100) : 0;
     const isVerified = levels.length > 0 && levels.every(l => l.status === "verified");
-    const certificateReady = isVerified;
+    const certificateReady = sertifikatStatus === "published";
     const statusLabel = isVerified ? "Terverifikasi ✓" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
 
     if (loading) return <LoadingSpinner />;

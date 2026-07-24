@@ -14,7 +14,7 @@ export default function SekolahHasilPenilaian() {
   const [levels, setLevels] = useState([]);
   const [profil, setProfil] = useState({ sekolah: {}, stats: {} });
   const [loading, setLoading] = useState(true);
-  
+
   // Sertifikat state
   const [certData, setCertData] = useState(null);
   const [inputNomor, setInputNomor] = useState("");
@@ -103,18 +103,15 @@ export default function SekolahHasilPenilaian() {
   const sekolah = profil?.sekolah ?? profil?.sekolah ?? userSchool ?? {};
 
   // Gunakan data dari backend certData
-  const isVerified = certData?.is_verified ?? false;
-  const certificateReady = isVerified;
+  const certificateReady = certData?.sertifikat?.status === 'published';
   const isGenerated = !!certData?.sertifikat;
-  
+
   const predikat = isGenerated ? certData.sertifikat.predikat : (certData?.predikat_calc || "standar");
   const nomorSertifikat = isGenerated ? certData.sertifikat.nomor_surat : "";
   const verifiedBy = certData?.verifier_name || "Admin Dinkes";
-  const verifiedAt = certData?.verified_at ? new Date(certData.verified_at).toLocaleString("id-ID") : new Date().toLocaleString("id-ID");
-  
+  const verifiedAt = certData?.sertifikat?.published_at || (certData?.verified_at ? new Date(certData.verified_at).toLocaleString("id-ID") : new Date().toLocaleString("id-ID"));
+
   const catatanVerifikasi = profil?.stats?.catatan_verifikasi || profil?.sekolah?.catatan_verifikasi || "";
-  
-  const setting = certData?.setting || null;
 
   const predLabel = predikat.charAt(0).toUpperCase() + predikat.slice(1);
   const predColors = {
@@ -126,9 +123,9 @@ export default function SekolahHasilPenilaian() {
   };
   const predStyle = predColors[predikat.toLowerCase()] || predColors.standar;
 
-  const statusLabel = isVerified ? "Terverifikasi" : progressPct === 100 ? "Menunggu Verifikasi" : "Dalam Proses";
-  const statusColor = isVerified ? "#0F9D58" : progressPct === 100 ? "#D97706" : "var(--primary)";
-  const statusBg = isVerified ? "#E8FFF1" : progressPct === 100 ? "#FFF7E8" : "#EFF6FF";
+  const statusLabel = certificateReady ? "Terbit" : (certData?.sertifikat?.status === 'rejected' ? "Ditolak" : (progressPct === 100 ? "Menunggu Penerbitan" : "Dalam Proses"));
+  const statusColor = certificateReady ? "#0F9D58" : (certData?.sertifikat?.status === 'rejected' ? "#DC2626" : (progressPct === 100 ? "#D97706" : "var(--primary)"));
+  const statusBg = certificateReady ? "#E8FFF1" : (certData?.sertifikat?.status === 'rejected' ? "#FEE2E2" : (progressPct === 100 ? "#FFF7E8" : "#EFF6FF"));
 
   if (loading) {
     return <div style={{ textAlign: "center", padding: "50px", color: "var(--text-muted)" }}>Memuat data penilaian...</div>;
@@ -162,7 +159,7 @@ export default function SekolahHasilPenilaian() {
               {sekolah.nama || user?.school?.name || "SDN 011 Laweyan"}
             </h2>
             <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
-              {isVerified && (
+              {certificateReady && (
                 <div style={{ padding: "5px 14px", borderRadius: "999px", background: predStyle.bg, color: predStyle.color, fontWeight: 700, fontSize: "13px" }}>
                   Predikat {predLabel}
                 </div>
@@ -212,101 +209,63 @@ export default function SekolahHasilPenilaian() {
         </div>
 
         {certificateReady ? (
-          isGenerated ? (
-            /* ── SERTIFIKAT SUDAH DIGENERATE ── */
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 18px", borderRadius: "16px", background: "#E8FFF1", border: "1px solid #C7F0D8", marginBottom: "24px" }}>
-                <CheckCircle2 size={20} color="#0F9D58" />
-                <div>
-                  <div style={{ fontWeight: 700, color: "#0F9D58" }}>Sertifikat Resmi Tersedia</div>
-                  <div style={{ fontSize: "13px", color: "#256C45" }}>
-                    Diterbitkan oleh {verifiedBy} · Nomor: {nomorSertifikat}
-                  </div>
+          /* ── SERTIFIKAT SUDAH DITERBITKAN OLEH SUPERADMIN ── */
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 18px", borderRadius: "16px", background: "#E8FFF1", border: "1px solid #C7F0D8", marginBottom: "24px" }}>
+              <CheckCircle2 size={20} color="#0F9D58" />
+              <div>
+                <div style={{ fontWeight: 700, color: "#0F9D58" }}>Sertifikat Resmi Telah Diterbitkan Pusat</div>
+                <div style={{ fontSize: "13px", color: "#256C45" }}>
+                  Diterbitkan tanggal {new Date(verifiedAt).toLocaleDateString('id-ID')} · Nomor Surat: {nomorSertifikat || "-"}
                 </div>
               </div>
-              <CertificateTemplate
-                namaSekolah={sekolah.nama || user?.school?.name || "SDN"}
-                predikat={predikat}
-                nomorSertif={nomorSertifikat}
-                verifiedAt={certData?.sertifikat?.published_at || verifiedAt}
-                verifiedBy={verifiedBy}
-                showActions={true}
-                setting={setting}
-              />
             </div>
-          ) : (
-            /* ── SERTIFIKAT SIAP DI-GENERATE (MEMILIH NOMOR) ── */
-            <div style={{ padding: "24px", background: "var(--bg-light)", borderRadius: "16px", border: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "var(--accent-glow)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--secondary)" }}>
-                  <Settings size={24} />
+            <div style={{ padding: 24, border: "1px solid var(--border)", borderRadius: 16, background: "var(--bg-light)", textAlign: "center" }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--accent-glow)", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                <Award size={40} />
+              </div>
+              <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "var(--text-main)" }}>
+                Selamat! Sekolah Anda berpredikat {predikat}
+              </h4>
+              <p style={{ color: "var(--text-muted)", fontSize: 14, marginBottom: 24, maxWidth: 400, margin: "0 auto 24px" }}>
+                Anda dapat mengunduh salinan sertifikat resmi yang telah diunggah oleh Superadmin.
+              </p>
+              {certData.sertifikat.file_url ? (
+                <a
+                  href={certData.sertifikat.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-primary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "12px 28px", borderRadius: 12, textDecoration: "none", fontWeight: 700 }}
+                >
+                  <Award size={18} />
+                  Lihat / Unduh Sertifikat
+                </a>
+              ) : (
+                <div style={{ padding: "12px 20px", display: "inline-flex", background: "#F3F4F6", color: "#6B7280", borderRadius: 12, fontSize: 14, fontWeight: 600 }}>
+                  Menunggu Dokumen Diunggah Superadmin
                 </div>
-                <div>
-                  <h4 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 4px 0" }}>Terbitkan Sertifikat</h4>
-                  <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: 0 }}>
-                    Sekolah Anda telah diverifikasi dengan predikat <strong>{predLabel}</strong>. Silakan konfirmasi nomor surat untuk menerbitkan sertifikat.
-                  </p>
+              )}
+            </div>
+          </div>
+        ) : certData?.sertifikat?.status === 'rejected' ? (
+          /* ── PENOLAKAN SERTIFIKAT ── */
+          <div style={{ padding: "24px", background: "#fef2f2", borderRadius: "16px", border: "1px solid #fca5a5" }}>
+            <div style={{ display: "flex", gap: "16px" }}>
+              <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 4px 0", color: "#991b1b" }}>Penerbitan Sertifikat Ditolak Pusat</h4>
+                <p style={{ fontSize: "14px", color: "#b91c1c", margin: 0 }}>
+                  <strong>Catatan Superadmin: </strong> {certData.sertifikat.catatan_superadmin}
+                </p>
+                <div style={{ marginTop: 12 }}>
+                  Tinjauan dikembalikan ke draft. Silakan perbaiki assessment Anda dan ajukan kembali.
                 </div>
               </div>
-
-              <form onSubmit={handleGenerateSertifikat}>
-                <div style={{ display: "grid", gap: "16px", marginBottom: "24px" }}>
-                  {setting?.is_auto_number && (
-                    <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "16px", borderRadius: "12px", border: useAutoNumber ? "2px solid var(--primary)" : "1px solid var(--border)", background: useAutoNumber ? "var(--bg-light)" : "transparent" }}>
-                      <input 
-                        type="radio" 
-                        checked={useAutoNumber} 
-                        onChange={() => setUseAutoNumber(true)} 
-                        style={{ marginTop: "4px" }} 
-                      />
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "15px" }}>Gunakan Penomoran Otomatis</div>
-                        <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>
-                          Sistem akan menggunakan format dari Admin OPD.
-                        </div>
-                        <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(0,0,0,0.05)", borderRadius: "6px", fontFamily: "monospace", fontSize: "14px", fontWeight: 700 }}>
-                          {certData?.auto_number_preview}
-                        </div>
-                      </div>
-                    </label>
-                  )}
-
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer", padding: "16px", borderRadius: "12px", border: !useAutoNumber ? "2px solid var(--primary)" : "1px solid var(--border)", background: !useAutoNumber ? "var(--bg-light)" : "transparent" }}>
-                    <input 
-                      type="radio" 
-                      checked={!useAutoNumber} 
-                      onChange={() => setUseAutoNumber(false)} 
-                      style={{ marginTop: "4px" }} 
-                    />
-                    <div style={{ width: "100%" }}>
-                      <div style={{ fontWeight: 600, fontSize: "15px" }}>Input Nomor Manual</div>
-                      <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px", marginBottom: "12px" }}>
-                        Masukkan nomor surat sertifikat secara manual jika Anda memiliki format sendiri.
-                      </div>
-                      {!useAutoNumber && (
-                        <input
-                          type="text"
-                          value={inputNomor}
-                          onChange={(e) => setInputNomor(e.target.value)}
-                          placeholder="Contoh: 440/123/UKS/2026"
-                          className="input"
-                          style={{ width: "100%" }}
-                          required
-                        />
-                      )}
-                    </div>
-                  </label>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button type="submit" className="btn btn-primary" disabled={generating} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 24px" }}>
-                    <Check size={18} />
-                    {generating ? "Menerbitkan..." : "Terbitkan Sertifikat"}
-                  </button>
-                </div>
-              </form>
             </div>
-          )
+          </div>
         ) : (
           /* ── BELUM TERSEDIA ── */
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "52px 24px", gap: "18px", textAlign: "center" }}>
@@ -320,7 +279,7 @@ export default function SekolahHasilPenilaian() {
               <div style={{ fontSize: "14px", color: "var(--text-muted)", lineHeight: 1.7, maxWidth: "420px" }}>
                 {progressPct < 100
                   ? "Selesaikan seluruh pengisian kuesioner terlebih dahulu, kemudian tunggu verifikasi dari admin wilayah."
-                  : "Kuesioner telah selesai diisi. Sertifikat akan otomatis tersedia setelah admin wilayah melakukan verifikasi."}
+                  : "Kuesioner telah selesai diisi. Sertifikat akan terbit setelah Superadmin meninjau dokumen ini."}
               </div>
             </div>
             <div style={{ padding: "12px 20px", borderRadius: "14px", background: "#FFF7E8", border: "1px solid #FED7AA", fontSize: "13px", color: "#92400E" }}>

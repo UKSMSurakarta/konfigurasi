@@ -235,11 +235,8 @@ class VerificationController extends Controller
                     return [
                         "id" => $p->id,
                         "pertanyaan" => $p->teks_pertanyaan,
-                        "jawaban" => $j
-                            ? ($j->jawaban_teks === "ya"
-                                ? "Memenuhi"
-                                : "Belum Memenuhi")
-                            : "Belum Dijawab",
+                        "tipe" => $p->tipe_jawaban,
+                        "jawaban" => $j ? $j->jawaban_teks : "Belum Dijawab",
                         "nilai" => $j ? $j->nilai : 0,
                         "bukti_links" => $links,
                         "is_rejected" => $j ? (bool)$j->is_rejected : false,
